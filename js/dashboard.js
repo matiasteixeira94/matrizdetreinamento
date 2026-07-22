@@ -30,26 +30,26 @@
     </p>
 
     <div class="grid grid-4">
-      <div class="card stat-tile">
+      <a class="card stat-tile stat-tile-link" href="pendencias.html?status=Todos" title="Ver todos os registros">
         <div class="stat-label">Registros na matriz</div>
         <div class="stat-value">${MT.fmtInt(total)}</div>
         <span class="footnote">colaborador × treinamento</span>
-      </div>
-      <div class="card stat-tile">
+      </a>
+      <a class="card stat-tile stat-tile-link" href="pendencias.html?status=Realizado" title="Ver os treinamentos realizados">
         <div class="stat-label">Realizados</div>
         <div class="stat-value">${MT.fmtPct(pct(realizado), 0)}</div>
         <span class="chip chip-good">${MT.fmtInt(realizado)} registros</span>
-      </div>
-      <div class="card stat-tile">
+      </a>
+      <a class="card stat-tile stat-tile-link" href="pendencias.html?status=Pendente" title="Ver os treinamentos pendentes">
         <div class="stat-label">Pendentes</div>
         <div class="stat-value">${MT.fmtPct(pct(pendente), 0)}</div>
         <span class="chip chip-warning">${MT.fmtInt(pendente)} registros</span>
-      </div>
-      <div class="card stat-tile">
+      </a>
+      <a class="card stat-tile stat-tile-link" href="pendencias.html?status=Atrasado" title="Ver os treinamentos atrasados">
         <div class="stat-label">Atrasados</div>
         <div class="stat-value">${MT.fmtPct(pct(atrasado), 0)}</div>
         <span class="chip chip-critical">${MT.fmtInt(atrasado)} registros</span>
-      </div>
+      </a>
     </div>
 
     <div class="grid grid-2">

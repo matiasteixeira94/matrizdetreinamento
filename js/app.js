@@ -196,11 +196,94 @@ const MT = (() => {
     }
   }
 
+  // Se todos os registros compartilham o mesmo valor em `campo`, devolve
+  // esse valor; senão devolve "" (fica em branco no formulário pra
+  // preencher à mão — ex.: lista com colaboradores de treinamentos
+  // diferentes não tem um "Instrutor" único pra estampar).
+  function valorUniforme(lista, campo) {
+    const valores = [...new Set(lista.map((r) => r[campo]).filter(Boolean))];
+    return valores.length === 1 ? valores[0] : "";
+  }
+
+  // Gera e imprime a LPT (Lista de Presença de Treinamento — FORM 05-01/11.1)
+  // preenchida com os nomes dos colaboradores da lista filtrada, deixando a
+  // coluna de assinatura em branco. Segue o mesmo padrão de exportação em
+  // PDF do repositório irmão (window.print() sobre uma folha estilizada só
+  // pra impressão) — sem gerar o PDF binário, o navegador cuida disso via
+  // "Salvar como PDF" na caixa de impressão.
+  function exportarLPT(lista) {
+    if (!lista || !lista.length) {
+      alert("Nenhum registro para exportar com os filtros atuais.");
+      return;
+    }
+    const treinamento = valorUniforme(lista, "NomeTreinamento");
+    const instrutor = valorUniforme(lista, "Instrutor");
+    const ga = valorUniforme(lista, "GA_Colaborador");
+    const supervisor = valorUniforme(lista, "NomeLider");
+    const dataTreinamento = valorUniforme(lista, "DataTreinamento");
+
+    const nomes = [...new Set(lista.map((r) => r.NomeColaborador).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+    const linhas = nomes.map((nome, i) => `
+      <tr><td class="lpt-num">${i + 1}</td><td>${nome}</td><td class="lpt-assinatura"></td></tr>
+    `).join("");
+
+    const html = `
+      <div class="lpt-sheet">
+        <div class="lpt-title">LPT<br>(LISTA DE PRESENÇA DE TREINAMENTO)</div>
+        <div class="lpt-fields">
+          <div class="lpt-field-row">
+            <div class="lpt-field"><b>TREINAMENTO:</b> ${treinamento}</div>
+            <div class="lpt-field"><b>SUPERVISOR:</b> ${supervisor}</div>
+          </div>
+          <div class="lpt-field-row">
+            <div class="lpt-field"><b>INSTRUTOR:</b> ${instrutor}</div>
+            <div class="lpt-field"><b>REVISÃO:</b></div>
+          </div>
+          <div class="lpt-field-row">
+            <div class="lpt-field"><b>HORÁRIO DE INÍCIO:</b></div>
+            <div class="lpt-field"><b>LOCAL:</b></div>
+          </div>
+          <div class="lpt-field-row">
+            <div class="lpt-field"><b>GA:</b> ${ga}</div>
+            <div class="lpt-field"><b>HORÁRIO DE ALMOÇO:</b></div>
+          </div>
+          <div class="lpt-field-row">
+            <div class="lpt-field"><b>HORÁRIO FINAL:</b></div>
+            <div class="lpt-field"><b>DATA:</b> ${dataTreinamento ? fmtDate(dataTreinamento) : ""}</div>
+          </div>
+          <div class="lpt-field-row">
+            <div class="lpt-field lpt-field-full"><b>OBJETIVO:</b></div>
+          </div>
+        </div>
+        <div class="lpt-note">
+          <div>Para diretos, preencher por extenso com o nome do colaborador.</div>
+          <div>Pedir para o colaborador assinar nesse campo.</div>
+        </div>
+        <table class="lpt-table">
+          <thead><tr><th style="width:28px;">Nº</th><th>NOME</th><th>ASSINATURA</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+        <div class="lpt-footer">FORM. 05-01/11.1</div>
+      </div>`;
+
+    let container = document.getElementById("lpt-print");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "lpt-print";
+      container.className = "lpt-print";
+      document.body.appendChild(container);
+    }
+    container.innerHTML = html;
+    window.print();
+  }
+
   return {
     NAV_ITEMS, STATUS_ORDER, STATUS_CHIP, STATUS_COLOR_VAR, STATUS_PRIORIDADE,
     applyStoredTheme, wireThemeToggle, renderShell, initials,
     loadTreinamentos, loadTreinamentosFiltrados, getUgbAtiva, setUgbAtiva, limparUgbAtiva,
-    fmtInt, fmtPct, fmtDate, statusChip, diasAte, popularFiltro,
+    fmtInt, fmtPct, fmtDate, statusChip, diasAte, popularFiltro, exportarLPT,
   };
 })();
 

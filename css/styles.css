@@ -312,6 +312,10 @@ h1, h2, h3, .num-hero, .brand-word {
 
 /* stat tile */
 .stat-tile { display: flex; flex-direction: column; gap: 8px; }
+.stat-tile-link {
+  cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.stat-tile-link:hover { transform: translateY(-3px); box-shadow: 0 12px 28px -10px rgba(43,20,20,0.32); border-color: var(--accent); }
 .stat-label { font-size: 12px; color: var(--ink-secondary); font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .stat-label svg { width: 15px; height: 15px; color: var(--ink-muted); }
 .stat-value { font-family: var(--font-display); font-size: 30px; font-weight: 600; line-height: 1; }
@@ -366,3 +370,34 @@ table.data td.num, table.data th.num { text-align: right; }
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .section-head h2 { font-size: 16.5px; }
 .empty-state { padding: 32px 16px; text-align: center; color: var(--ink-muted); font-size: 13px; }
+
+/* ---- Impressão da LPT (Lista de Presença de Treinamento — FORM 05-01/11.1) ----
+   Reproduz os campos do formulário oficial (ver docs/estrutura-dados.md).
+   Escondida na tela normal; ao imprimir, esconde todo o resto da página e
+   mostra só essa folha — assim window.print() gera exatamente a LPT, sem
+   sidebar/topbar/gráficos junto. */
+.lpt-print { display: none; }
+@media print {
+  body * { visibility: hidden; }
+  .lpt-print, .lpt-print * { visibility: visible; }
+  .lpt-print { display: block; position: absolute; top: 0; left: 0; width: 100%; }
+  @page { margin: 14mm; }
+}
+.lpt-sheet { font-family: Arial, Helvetica, sans-serif; color: #000; }
+.lpt-title { text-align: center; font-weight: 700; font-size: 15px; border: 1px solid #000; padding: 8px; line-height: 1.3; }
+.lpt-fields { border: 1px solid #000; border-top: none; }
+.lpt-field-row { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #000; }
+.lpt-field-row:last-child { border-bottom: none; }
+.lpt-field { padding: 4px 8px; font-size: 11px; border-right: 1px solid #000; min-height: 16px; }
+.lpt-field:last-child { border-right: none; }
+.lpt-field b { margin-right: 4px; }
+.lpt-field-full { grid-column: 1 / -1; border-right: none; }
+.lpt-note { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #000; border-top: none; font-size: 9.5px; font-style: italic; }
+.lpt-note div { padding: 4px 8px; border-right: 1px solid #000; }
+.lpt-note div:last-child { border-right: none; }
+.lpt-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.lpt-table th, .lpt-table td { border: 1px solid #000; padding: 4px 8px; font-size: 11px; text-align: left; }
+.lpt-table th { text-align: center; font-weight: 700; }
+.lpt-table td.lpt-num { width: 28px; text-align: center; }
+.lpt-table td.lpt-assinatura { width: 34%; }
+.lpt-footer { text-align: right; font-size: 9px; margin-top: 4px; }
