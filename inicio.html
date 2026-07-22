@@ -23,19 +23,23 @@
     position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center;
   }
   .hero-overlay {
-    /* Bem mais opaco que um overlay comum — a imagem de fundo já carrega a
-       marca "viana e moura" embutida (canto superior direito) e, sem isso,
-       ela brigava visualmente com o título centralizado por cima. */
+    /* Fundo claro (branco + dourado) — só uma lavagem branca bem leve pra
+       garantir contraste do título por cima, nada do escurecimento pesado
+       que a versão anterior (fundo vinho escuro) precisava. */
     position: absolute; inset: 0;
-    background: linear-gradient(180deg, rgba(18, 8, 8, 0.68) 0%, rgba(24, 10, 10, 0.74) 55%, rgba(24, 10, 10, 0.82) 100%);
+    background: linear-gradient(180deg, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0.5) 55%, rgba(255,255,255,0.7) 100%);
   }
-  .hero-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 28px; width: 100%; max-width: 720px; }
+  .hero-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; max-width: 720px; }
+  .hero-title-card {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    background: var(--surface-raised); border-radius: 16px; padding: 20px 30px;
+    box-shadow: 0 16px 40px rgba(30, 14, 12, 0.22);
+  }
   .hero-title {
-    font-family: var(--font-display); font-weight: 600; color: #FBF1E3;
-    font-size: clamp(26px, 4.2vw, 40px); text-align: center; text-wrap: balance;
-    text-shadow: 0 2px 14px rgba(0,0,0,0.5);
+    font-family: var(--font-display); font-weight: 600; color: var(--accent-strong);
+    font-size: clamp(24px, 4vw, 36px); text-align: center; text-wrap: balance;
   }
-  .hero-subtitle { color: #F1DAD2; font-size: 14px; text-align: center; margin-top: -14px; text-shadow: 0 1px 8px rgba(0,0,0,0.4); }
+  .hero-subtitle { color: var(--ink-secondary); font-size: 14px; text-align: center; }
   .hero-card {
     width: 100%; background: var(--surface-raised); border-radius: 18px;
     box-shadow: 0 24px 60px rgba(30, 14, 12, 0.35); padding: 30px 28px;
@@ -97,11 +101,13 @@
 </head>
 <body>
   <div class="hero">
-    <img class="hero-bg" src="assets/images/capa-viana-moura.png" alt="" aria-hidden="true" />
+    <img class="hero-bg" src="assets/images/capa-viana-moura-clara.png" alt="" aria-hidden="true" />
     <div class="hero-overlay" aria-hidden="true"></div>
     <div class="hero-wrap">
-      <h1 class="hero-title">Gestão de Matriz de Treinamento</h1>
-      <p class="hero-subtitle" id="hero-subtitle">Carregando unidades…</p>
+      <div class="hero-title-card">
+        <h1 class="hero-title">Gestão de Matriz de Treinamento</h1>
+        <p class="hero-subtitle" id="hero-subtitle">Carregando unidades…</p>
+      </div>
       <div class="hero-card">
         <div class="hero-card-label">Selecione a UGB</div>
         <div class="ugb-grid" id="ugb-grid"></div>

@@ -60,6 +60,43 @@ verdade e a função serverless só faz o papel de proxy + parser + cache.
 - **Pendências** (`pendencias.html`) — apenas linhas com `Status` `Atrasado` ou `Pendente`, ordenadas por `Prazo`.
 - **Equipes** (`equipes.html`) — uma linha por `NomeLider`, agregando o time dele.
 
+## Outras bases (empresa toda, fora da matriz por UGB)
+
+Duas fontes adicionais, de domínios diferentes da matriz individual — não são
+filtradas pela UGB ativa (ver `inicio.html`) e têm suas próprias telas
+("Bases corporativas" na barra lateral):
+
+### Universidade VM (`api/progresso-univm.js` → `universidade.html`)
+
+CSV: `.../Gente e Gestao/ProgressoUniVM.csv` — colunas `id;numero;Colaborador;
+Trilha;Cursos;Qtde_Curso;Cargo;Setor`. Cada linha é um curso concluído por um
+colaborador dentro de uma trilha de aprendizagem da Universidade VM
+(e-learning corporativo). `Qtde_Curso` é o currículo total daquela trilha
+(fixo pro sistema todo, não por pessoa — conferido nos dados reais), então
+`% de progresso = cursos concluídos daquela trilha / Qtde_Curso`. Dataset
+pequeno (~15 mil linhas, ~3MB em JSON) — a API devolve tudo de uma vez, igual
+`api/treinamentos.js`.
+
+### Histórico Geral (`api/historico-treinamentos.js` → `historico.html`)
+
+CSV: `.../Gente e Gestao/relatorio_treinamentos.csv` — relatório histórico de
+treinamentos da empresa toda desde 2015 (~35 mil linhas, ~18MB em JSON, grande
+demais pra mandar inteiro numa resposta de função serverless). Por isso essa
+API **nunca devolve os registros brutos inteiros**:
+
+- sem parâmetros → catálogo agregado por `nomeTreinamento` (~590 linhas: total
+  de realizações, colaboradores únicos, primeira/última data);
+- `?treinamento=<nome exato>` → registros individuais só daquele treinamento;
+- `?colaborador=<substring>` → histórico só dos colaboradores cujo nome bate
+  (limitado a 500 registros mais recentes).
+
+Tem um cache em memória de 5 minutos no nível do módulo da função (sobrevive
+entre invocações num mesmo container "quente" da Vercel) pra não rebaixar+
+reprocessar o CSV de 8MB a cada request. Ambas as funções (`progresso-univm` e
+`historico-treinamentos`) têm `maxDuration: 30` no `vercel.json` — o fetch do
+CSV de origem sozinho já leva uns 7-8s nesse volume de dados, perto do limite
+padrão de 10s da Vercel.
+
 ## Próximos passos sugeridos
 
 - Tela de login (autenticação por usuário/senha ou SSO da Viana & Moura) — deixada de fora da primeira versão de propósito.

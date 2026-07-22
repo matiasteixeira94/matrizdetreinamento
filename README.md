@@ -12,25 +12,32 @@ mesma estrutura de shell (sidebar/topbar). **Sem tela de login por enquanto**
 
 ```
 .
-├── index.html            # Visão Geral (dashboard)
-├── colaboradores.html      # Matriz por colaborador, com drill-down individual
-├── treinamentos.html        # Catálogo de treinamentos, % de conclusão
-├── pendencias.html            # Atrasados e pendentes, ordenado por prazo
-├── equipes.html                 # Rollup por líder/equipe
-├── css/styles.css                 # Tokens de design + componentes compartilhados
+├── inicio.html            # Tela inicial — seleção de UGB (start_url do PWA)
+├── index.html               # Visão Geral (dashboard)
+├── colaboradores.html         # Matriz por colaborador, com drill-down individual
+├── treinamentos.html            # Catálogo de treinamentos, % de conclusão
+├── pendencias.html                # Atrasados e pendentes, filtro por Tipo/Treinamento, exporta LPT em PDF
+├── equipes.html                     # Rollup por líder/equipe
+├── universidade.html                  # Bases corporativas: progresso de trilhas/cursos (Universidade VM)
+├── historico.html                       # Bases corporativas: histórico geral de treinamentos (empresa toda)
+├── css/styles.css                         # Tokens de design + componentes compartilhados
 ├── js/
-│   ├── app.js                       # Shell (sidebar/topbar), tema, utilidades e acesso aos dados
-│   ├── charts.js                      # Gráficos em SVG puro (barras, barras+linha, ranking)
-│   ├── dashboard.js                     # Lógica da Visão Geral
-│   ├── colaboradores.js                   # Lógica da tela Colaboradores
-│   ├── treinamentos.js                      # Lógica da tela Treinamentos
-│   ├── pendencias.js                          # Lógica da tela Pendências
-│   └── equipes.js                               # Lógica da tela Equipes
+│   ├── app.js                               # Shell (sidebar/topbar), UGB ativa, tema, utilidades e acesso aos dados
+│   ├── charts.js                              # Gráficos em SVG puro (barras, barras+linha, ranking)
+│   ├── dashboard.js                             # Lógica da Visão Geral
+│   ├── colaboradores.js                           # Lógica da tela Colaboradores
+│   ├── treinamentos.js                              # Lógica da tela Treinamentos
+│   ├── pendencias.js                                  # Lógica da tela Pendências + exportação LPT
+│   ├── equipes.js                                       # Lógica da tela Equipes
+│   ├── universidade.js                                    # Lógica da tela Universidade VM
+│   └── historico.js                                         # Lógica da tela Histórico Geral
 ├── api/
-│   ├── treinamentos.js    # Função serverless: busca + faz parse do CSV de origem, devolve JSON
-│   └── _csv.js              # Parser CSV (delimitador ";", RFC4180) sem dependências externas
+│   ├── treinamentos.js    # Função serverless: matriz individual (busca + parse do CSV, devolve JSON)
+│   ├── progresso-univm.js   # Função serverless: progresso da Universidade VM
+│   ├── historico-treinamentos.js  # Função serverless: histórico geral (catálogo agregado + busca sob demanda)
+│   └── _csv.js               # Parser CSV (delimitador ";", RFC4180) sem dependências externas
 └── docs/
-    └── estrutura-dados.md  # Colunas do CSV de origem + como cada tela usa os dados
+    └── estrutura-dados.md  # Colunas de cada CSV de origem + como cada tela usa os dados
 ```
 
 ## Fonte dos dados
@@ -52,7 +59,7 @@ npm i -g vercel
 vercel dev
 ```
 
-Depois acesse `http://localhost:3000/index.html`.
+Depois acesse `http://localhost:3000/inicio.html`.
 
 ## Deploy (GitHub + Vercel)
 

@@ -14,6 +14,8 @@ const MT = (() => {
     treinamentos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>',
     pendencias: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v6l4 2"/></svg>',
     equipes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    universidade: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 10-10-6L2 10l10 6 10-6Z"/><path d="M6 12v5c0 1.1 2.7 2 6 2s6-.9 6-2v-5"/></svg>',
+    historico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>',
   };
 
   const NAV_ITEMS = [
@@ -22,6 +24,8 @@ const MT = (() => {
     { key: "treinamentos", href: "treinamentos.html", label: "Treinamentos" },
     { key: "pendencias", href: "pendencias.html", label: "Pendências" },
     { key: "equipes", href: "equipes.html", label: "Equipes" },
+    { key: "universidade", href: "universidade.html", label: "Universidade VM" },
+    { key: "historico", href: "historico.html", label: "Histórico Geral" },
   ];
 
   function applyStoredTheme() {
@@ -49,20 +53,25 @@ const MT = (() => {
     });
   }
 
-  function renderShell({ activeKey, eyebrow, title, actionsHtml }) {
+  const NAV_GRUPO_MATRIZ = ["dashboard", "colaboradores", "treinamentos", "pendencias", "equipes"];
+  const NAV_GRUPO_CORPORATIVO = ["universidade", "historico"];
+
+  function renderShell({ activeKey, eyebrow, title, actionsHtml, mostrarUgb = true }) {
     const mount = document.getElementById("mt-shell");
     if (!mount) return;
 
-    const navHtml = NAV_ITEMS.map((item) => `
+    const linkHtml = (item) => `
       <a class="nav-link" href="${item.href}" ${item.key === activeKey ? 'aria-current="page"' : ""}>
         ${NAV_ICONS[item.key]}<span>${item.label}</span>
-      </a>`).join("");
+      </a>`;
+    const navHtmlMatriz = NAV_ITEMS.filter((i) => NAV_GRUPO_MATRIZ.includes(i.key)).map(linkHtml).join("");
+    const navHtmlCorp = NAV_ITEMS.filter((i) => NAV_GRUPO_CORPORATIVO.includes(i.key)).map(linkHtml).join("");
 
     const ugbAtiva = getUgbAtiva();
-    const ugbBadgeHtml = `
+    const ugbBadgeHtml = mostrarUgb ? `
       <a class="chip ${ugbAtiva ? "chip-neutral" : "chip-good"}" href="inicio.html" style="text-decoration:none;" title="Trocar UGB">
         ${ugbAtiva ? `UGB ${ugbAtiva}` : "Todas as UGBs"}
-      </a>`;
+      </a>` : "";
 
     mount.innerHTML = `
       <div class="mobile-topbar">
@@ -81,8 +90,12 @@ const MT = (() => {
           <div class="brand-word">Matriz de Treinamento<small>Viana &amp; Moura Construções</small></div>
         </a>
         <nav class="nav-group">
-          <div class="nav-label">Monitoramento</div>
-          ${navHtml}
+          <div class="nav-label">Matriz por UGB</div>
+          ${navHtmlMatriz}
+        </nav>
+        <nav class="nav-group">
+          <div class="nav-label">Bases corporativas</div>
+          ${navHtmlCorp}
         </nav>
         <div class="sidebar-foot">
           <button class="btn btn-ghost" id="mt-theme-toggle" style="justify-content:flex-start" type="button">

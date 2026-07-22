@@ -7,6 +7,8 @@ const CACHE_NAME = "mt-cache-v1";
 const CORE_ASSETS = [
   "inicio.html",
   "index.html",
+  "universidade.html",
+  "historico.html",
   "css/styles.css",
   "js/app.js",
   "js/charts.js",
