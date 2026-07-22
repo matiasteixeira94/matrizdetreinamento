@@ -86,6 +86,17 @@
         </table></div>
       </div>
     </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Ranking por setor</div><div class="card-sub">Maior % de atraso primeiro · mínimo 5 registros</div></div></div>
+        <div class="chart-host" id="chart-ranking-setor"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Ranking por líder</div><div class="card-sub">Maior % de atraso primeiro · mínimo 5 registros</div></div></div>
+        <div class="chart-host" id="chart-ranking-lider"></div>
+      </div>
+    </div>
   `;
 
   function renderGraficos() {
@@ -140,23 +151,36 @@
       yFormat: (v) => MT.fmtInt(v),
     });
 
-    const porArea = {};
-    for (const r of registros) {
-      const area = r.GA_Colaborador || "Sem GA";
-      porArea[area] ??= { total: 0, atrasado: 0 };
-      porArea[area].total++;
-      if (r.Status === "Atrasado") porArea[area].atrasado++;
+    // Ranking genérico por % de atraso — usado pra GA, Setor e Líder. Mínimo
+    // de 5 registros evita destacar grupos minúsculos onde 1 atraso já vira
+    // 50%+ e distorce o ranking.
+    function rankingPorAtraso(campo, rotuloVazio) {
+      const porGrupo = {};
+      for (const r of registros) {
+        const chave = r[campo] || rotuloVazio;
+        porGrupo[chave] ??= { total: 0, atrasado: 0 };
+        porGrupo[chave].total++;
+        if (r.Status === "Atrasado") porGrupo[chave].atrasado++;
+      }
+      return Object.entries(porGrupo)
+        .filter(([, v]) => v.total >= 5)
+        .map(([label, v]) => ({ label, value: Math.round((v.atrasado / v.total) * 1000) / 10, total: v.total }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
     }
-    const ranking = Object.entries(porArea)
-      .filter(([, v]) => v.total >= 5)
-      .map(([label, v]) => ({ label, value: Math.round((v.atrasado / v.total) * 1000) / 10, total: v.total }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 10);
-    MTCharts.hbars(document.getElementById("chart-areas-atraso"), {
-      items: ranking.map((r) => ({ label: `${r.label} (${MT.fmtInt(r.total)})`, value: r.value, color: r.value >= 40 ? "var(--status-critical)" : r.value >= 15 ? "var(--status-warning)" : "var(--status-good)" })),
-      valueFormat: (v) => MT.fmtPct(v, 0),
-      showTarget: false,
-    });
+
+    function renderRankingAtraso(hostId, campo, rotuloVazio) {
+      const ranking = rankingPorAtraso(campo, rotuloVazio);
+      MTCharts.hbars(document.getElementById(hostId), {
+        items: ranking.map((r) => ({ label: `${r.label} (${MT.fmtInt(r.total)})`, value: r.value, color: r.value >= 40 ? "var(--status-critical)" : r.value >= 15 ? "var(--status-warning)" : "var(--status-good)" })),
+        valueFormat: (v) => MT.fmtPct(v, 0),
+        showTarget: false,
+      });
+    }
+
+    renderRankingAtraso("chart-areas-atraso", "GA_Colaborador", "Sem GA");
+    renderRankingAtraso("chart-ranking-setor", "Setor_Colaborador", "Sem setor");
+    renderRankingAtraso("chart-ranking-lider", "NomeLider", "Sem líder");
 
     const porInstrutor = {};
     for (const r of registros) {
