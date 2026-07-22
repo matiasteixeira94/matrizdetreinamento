@@ -1,0 +1,17 @@
+{
+  "name": "Matriz de Treinamento — Viana & Moura Construções",
+  "short_name": "Matriz de Treinamento",
+  "description": "Acompanhamento da matriz individual de treinamentos: status, prazos e cobertura por colaborador, equipe e unidade.",
+  "start_url": "index.html",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F4E7C9",
+  "theme_color": "#A23A3E",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "cleanUrls": false,
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/", "destination": "/index.html", "permanent": false }
+  ],
+  "headers": [
+    {
+      "source": "/api/treinamentos",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=300, s-maxage=300, stale-while-revalidate=600" }]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    }
+  ]
+}
