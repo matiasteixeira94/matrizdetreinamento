@@ -5,6 +5,7 @@
 // nunca fica preso numa versão antiga por muito tempo.
 const CACHE_NAME = "mt-cache-v1";
 const CORE_ASSETS = [
+  "inicio.html",
   "index.html",
   "css/styles.css",
   "js/app.js",
@@ -40,6 +41,6 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)).catch(() => {});
         return res;
       })
-      .catch(() => caches.match(req).then((cached) => cached || caches.match("index.html")))
+      .catch(() => caches.match(req).then((cached) => cached || caches.match("inicio.html")))
   );
 });

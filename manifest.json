@@ -2,7 +2,7 @@
   "name": "Matriz de Treinamento — Viana & Moura Construções",
   "short_name": "Matriz de Treinamento",
   "description": "Acompanhamento da matriz individual de treinamentos: status, prazos e cobertura por colaborador, equipe e unidade.",
-  "start_url": "index.html",
+  "start_url": "inicio.html",
   "scope": ".",
   "display": "standalone",
   "orientation": "any",

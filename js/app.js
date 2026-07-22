@@ -6,6 +6,7 @@
 
 const MT = (() => {
   const THEME_KEY = "mt_theme";
+  const UGB_KEY = "mt_ugb_ativa";
 
   const NAV_ICONS = {
     dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>',
@@ -57,19 +58,25 @@ const MT = (() => {
         ${NAV_ICONS[item.key]}<span>${item.label}</span>
       </a>`).join("");
 
+    const ugbAtiva = getUgbAtiva();
+    const ugbBadgeHtml = `
+      <a class="chip ${ugbAtiva ? "chip-neutral" : "chip-good"}" href="inicio.html" style="text-decoration:none;" title="Trocar UGB">
+        ${ugbAtiva ? `UGB ${ugbAtiva}` : "Todas as UGBs"}
+      </a>`;
+
     mount.innerHTML = `
       <div class="mobile-topbar">
         <button class="mobile-topbar-toggle" id="mt-sidebar-toggle" type="button" aria-label="Abrir menu" aria-expanded="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
         </button>
-        <a class="mobile-topbar-brand" href="index.html">
+        <a class="mobile-topbar-brand" href="inicio.html">
           <div class="brand-mark" style="width:26px;height:26px;"><img src="assets/images/logo-viana-moura.png" alt="" /></div>
           <span>Matriz de Treinamento</span>
         </a>
       </div>
       <div class="sidebar-backdrop" id="mt-sidebar-backdrop"></div>
       <aside class="sidebar" id="mt-sidebar">
-        <a class="brand" href="index.html" title="Ir para a Visão Geral">
+        <a class="brand" href="inicio.html" title="Trocar UGB">
           <div class="brand-mark"><img src="assets/images/logo-viana-moura.png" alt="" /></div>
           <div class="brand-word">Matriz de Treinamento<small>Viana &amp; Moura Construções</small></div>
         </a>
@@ -89,7 +96,7 @@ const MT = (() => {
             <div class="topbar-eyebrow">${eyebrow ?? "Matriz de Treinamento"}</div>
             <h1>${title}</h1>
           </div>
-          <div class="topbar-actions">${actionsHtml ?? ""}</div>
+          <div class="topbar-actions">${ugbBadgeHtml}${actionsHtml ?? ""}</div>
         </header>
         <div class="content" id="mt-content"></div>
       </div>`;
@@ -120,6 +127,20 @@ const MT = (() => {
     const dados = await res.json();
     _cache = dados.registros;
     return _cache;
+  }
+
+  // UGB escolhida na tela inicial (inicio.html) — persiste entre páginas via
+  // localStorage. `null`/ausente significa "todas as UGBs juntas".
+  function getUgbAtiva() { return localStorage.getItem(UGB_KEY) || null; }
+  function setUgbAtiva(ugb) { localStorage.setItem(UGB_KEY, ugb); }
+  function limparUgbAtiva() { localStorage.removeItem(UGB_KEY); }
+
+  // Igual a loadTreinamentos, mas já aplica o recorte pela UGB ativa — é o
+  // que as telas (dashboard, colaboradores etc.) devem chamar.
+  async function loadTreinamentosFiltrados(opts) {
+    const todos = await loadTreinamentos(opts);
+    const ugb = getUgbAtiva();
+    return ugb ? todos.filter((r) => r.UGB_Colaborador === ugb) : todos;
   }
 
   const fmtInt = (n) => new Intl.NumberFormat("pt-BR").format(Math.round(n));
@@ -178,7 +199,8 @@ const MT = (() => {
   return {
     NAV_ITEMS, STATUS_ORDER, STATUS_CHIP, STATUS_COLOR_VAR, STATUS_PRIORIDADE,
     applyStoredTheme, wireThemeToggle, renderShell, initials,
-    loadTreinamentos, fmtInt, fmtPct, fmtDate, statusChip, diasAte, popularFiltro,
+    loadTreinamentos, loadTreinamentosFiltrados, getUgbAtiva, setUgbAtiva, limparUgbAtiva,
+    fmtInt, fmtPct, fmtDate, statusChip, diasAte, popularFiltro,
   };
 })();
 

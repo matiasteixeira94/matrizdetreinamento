@@ -7,7 +7,7 @@
 
   let registros;
   try {
-    registros = await MT.loadTreinamentos();
+    registros = await MT.loadTreinamentosFiltrados();
   } catch (e) {
     content.innerHTML = `<div class="card empty-state">${e.message}</div>`;
     return;

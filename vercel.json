@@ -2,7 +2,7 @@
   "cleanUrls": false,
   "trailingSlash": false,
   "redirects": [
-    { "source": "/", "destination": "/index.html", "permanent": false }
+    { "source": "/", "destination": "/inicio.html", "permanent": false }
   ],
   "headers": [
     {
