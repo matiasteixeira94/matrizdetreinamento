@@ -38,6 +38,9 @@
     }).sort((a, b) => b.tamanhoEquipe - a.tamanhoEquipe);
   })();
 
+  // Vindo do ranking da Visão Geral: ?lider=X já abre a equipe desse líder.
+  const liderUrl = new URLSearchParams(location.search).get("lider") || "";
+
   const state = { busca: "", ugb: "" };
 
   content.innerHTML = `
@@ -176,4 +179,5 @@
   });
 
   render();
+  if (liderUrl && equipes.some((eq) => eq.nome === liderUrl)) abrirDetalhe(liderUrl);
 })();

@@ -52,6 +52,25 @@
       </a>
     </div>
 
+    <div class="section-head">
+      <h2>Rankings — maior % de atraso primeiro</h2>
+      <span class="footnote">Clique num líder ou setor pra ver a equipe / lista completa · mínimo 5 registros</span>
+    </div>
+    <div class="grid grid-3">
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Colaboradores</div><div class="card-sub">Top 10</div></div></div>
+        <div class="chart-host" id="chart-ranking-colaborador"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Líderes</div><div class="card-sub">Clique pra ver a equipe</div></div></div>
+        <div class="chart-host" id="chart-ranking-lider"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Setores</div><div class="card-sub">Clique pra ver todos os colaboradores</div></div></div>
+        <div class="chart-host" id="chart-ranking-setor"></div>
+      </div>
+    </div>
+
     <div class="grid grid-2">
       <div class="card">
         <div class="card-head"><div><div class="card-title">Registros por status</div><div class="card-sub">Proporção do total da matriz</div></div></div>
@@ -61,16 +80,6 @@
         <div class="card-head"><div><div class="card-title">Treinamentos realizados por mês</div><div class="card-sub">Contagem pela data de realização</div></div></div>
         <div class="chart-host" id="chart-evolucao"></div>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="card-head"><div><div class="card-title">Por tipo de treinamento</div><div class="card-sub">Composição de status em cada tipo</div></div></div>
-      <div class="chart-host" id="chart-tipo"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-head"><div><div class="card-title">Por UGB do colaborador</div><div class="card-sub">Composição de status em cada unidade</div></div></div>
-      <div class="chart-host" id="chart-ugb"></div>
     </div>
 
     <div class="grid grid-2">
@@ -84,17 +93,6 @@
           <thead><tr><th>Instrutor</th><th class="num">Realizados</th></tr></thead>
           <tbody id="tbody-instrutores"></tbody>
         </table></div>
-      </div>
-    </div>
-
-    <div class="grid grid-2">
-      <div class="card">
-        <div class="card-head"><div><div class="card-title">Ranking por setor</div><div class="card-sub">Maior % de atraso primeiro · mínimo 5 registros</div></div></div>
-        <div class="chart-host" id="chart-ranking-setor"></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div><div class="card-title">Ranking por líder</div><div class="card-sub">Maior % de atraso primeiro · mínimo 5 registros</div></div></div>
-        <div class="chart-host" id="chart-ranking-lider"></div>
       </div>
     </div>
   `;
@@ -123,37 +121,9 @@
       legendLabel: "Treinamentos realizados por mês",
     });
 
-    const porTipo = {};
-    for (const r of registros) {
-      const tipo = r.TipoTreinamento || "Sem tipo";
-      porTipo[tipo] ??= Object.fromEntries(MT.STATUS_ORDER.map((s) => [s, 0]));
-      const st = r.Status;
-      if (porTipo[tipo][st] !== undefined) porTipo[tipo][st]++;
-    }
-    const tipos = Object.keys(porTipo).sort((a, b) => Object.values(porTipo[b]).reduce((x, y) => x + y, 0) - Object.values(porTipo[a]).reduce((x, y) => x + y, 0));
-    MTCharts.stackedBars(document.getElementById("chart-tipo"), {
-      categories: tipos,
-      series: MT.STATUS_ORDER.map((s) => ({ name: s, color: MT.STATUS_COLOR_VAR[s], values: tipos.map((t) => porTipo[t][s]) })),
-      yFormat: (v) => MT.fmtInt(v),
-    });
-
-    const porUGB = {};
-    for (const r of registros) {
-      const ugb = r.UGB_Colaborador || "Não tem UGB";
-      porUGB[ugb] ??= Object.fromEntries(MT.STATUS_ORDER.map((s) => [s, 0]));
-      const st = r.Status;
-      if (porUGB[ugb][st] !== undefined) porUGB[ugb][st]++;
-    }
-    const ugbs = Object.keys(porUGB).sort((a, b) => Object.values(porUGB[b]).reduce((x, y) => x + y, 0) - Object.values(porUGB[a]).reduce((x, y) => x + y, 0));
-    MTCharts.stackedBars(document.getElementById("chart-ugb"), {
-      categories: ugbs,
-      series: MT.STATUS_ORDER.map((s) => ({ name: s, color: MT.STATUS_COLOR_VAR[s], values: ugbs.map((u) => porUGB[u][s]) })),
-      yFormat: (v) => MT.fmtInt(v),
-    });
-
-    // Ranking genérico por % de atraso — usado pra GA, Setor e Líder. Mínimo
-    // de 5 registros evita destacar grupos minúsculos onde 1 atraso já vira
-    // 50%+ e distorce o ranking.
+    // Ranking genérico por % de atraso — usado pra Colaborador, Líder, Setor
+    // e GA. Mínimo de 5 registros evita destacar grupos minúsculos onde 1
+    // atraso já vira 50%+ e distorce o ranking.
     function rankingPorAtraso(campo, rotuloVazio) {
       const porGrupo = {};
       for (const r of registros) {
@@ -169,18 +139,29 @@
         .slice(0, 10);
     }
 
-    function renderRankingAtraso(hostId, campo, rotuloVazio) {
+    function renderRankingAtraso(hostId, campo, rotuloVazio, aoClicar) {
       const ranking = rankingPorAtraso(campo, rotuloVazio);
       MTCharts.hbars(document.getElementById(hostId), {
-        items: ranking.map((r) => ({ label: `${r.label} (${MT.fmtInt(r.total)})`, value: r.value, color: r.value >= 40 ? "var(--status-critical)" : r.value >= 15 ? "var(--status-warning)" : "var(--status-good)" })),
+        items: ranking.map((r) => ({
+          label: `${r.label} (${MT.fmtInt(r.total)})`, value: r.value, _nome: r.label,
+          color: r.value >= 40 ? "var(--status-critical)" : r.value >= 15 ? "var(--status-warning)" : "var(--status-good)",
+        })),
         valueFormat: (v) => MT.fmtPct(v, 0),
         showTarget: false,
+        onClick: aoClicar ? (item) => aoClicar(item._nome) : null,
       });
     }
 
+    renderRankingAtraso("chart-ranking-colaborador", "NomeColaborador", "Sem nome", (nome) => {
+      window.location.href = `colaboradores.html?colaborador=${encodeURIComponent(nome)}`;
+    });
+    renderRankingAtraso("chart-ranking-lider", "NomeLider", "Sem líder", (nome) => {
+      window.location.href = `equipes.html?lider=${encodeURIComponent(nome)}`;
+    });
+    renderRankingAtraso("chart-ranking-setor", "Setor_Colaborador", "Sem setor", (setor) => {
+      window.location.href = `colaboradores.html?setor=${encodeURIComponent(setor)}`;
+    });
     renderRankingAtraso("chart-areas-atraso", "GA_Colaborador", "Sem GA");
-    renderRankingAtraso("chart-ranking-setor", "Setor_Colaborador", "Sem setor");
-    renderRankingAtraso("chart-ranking-lider", "NomeLider", "Sem líder");
 
     const porInstrutor = {};
     for (const r of registros) {

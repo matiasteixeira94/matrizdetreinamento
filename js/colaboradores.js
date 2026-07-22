@@ -39,7 +39,13 @@
     }).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   })();
 
-  const state = { busca: "", ugb: "", ga: "", status: "", selecionado: null };
+  // Vindo do ranking da Visão Geral: ?setor=X abre já filtrado por setor;
+  // ?colaborador=X busca e abre o detalhe direto dessa pessoa.
+  const params = new URLSearchParams(location.search);
+  const setorUrl = params.get("setor") || "";
+  const colaboradorUrl = params.get("colaborador") || "";
+
+  const state = { busca: colaboradorUrl, ugb: "", ga: "", setor: setorUrl, status: "", selecionado: null };
 
   content.innerHTML = `
     <div class="filter-bar">
@@ -54,6 +60,10 @@
       <div class="field">
         <label for="f-ga">GA / Área</label>
         <select class="select" id="f-ga"><option value="">Todas</option></select>
+      </div>
+      <div class="field">
+        <label for="f-setor">Setor</label>
+        <select class="select" id="f-setor"><option value="">Todos</option></select>
       </div>
       <div class="field">
         <label for="f-status">Situação</label>
@@ -75,7 +85,7 @@
       <div class="table-wrap table-wrap-scroll">
         <table class="data">
           <thead>
-            <tr><th>Colaborador</th><th>Cargo</th><th>UGB</th><th>GA</th><th>Líder</th><th class="num">Treinamentos</th><th>Conclusão</th><th>Situação</th></tr>
+            <tr><th>Colaborador</th><th>Cargo</th><th>UGB</th><th>GA</th><th>Setor</th><th>Líder</th><th class="num">Treinamentos</th><th>Conclusão</th><th>Situação</th></tr>
           </thead>
           <tbody id="tbody-colaboradores"></tbody>
         </table>
@@ -98,6 +108,9 @@
 
   MT.popularFiltro(document.getElementById("f-ugb"), registros, "UGB_Colaborador");
   MT.popularFiltro(document.getElementById("f-ga"), registros, "GA_Colaborador");
+  MT.popularFiltro(document.getElementById("f-setor"), registros, "Setor_Colaborador");
+  document.getElementById("f-busca").value = state.busca;
+  document.getElementById("f-setor").value = state.setor;
 
   function filtrarColaboradores() {
     const busca = state.busca.trim().toLowerCase();
@@ -105,6 +118,7 @@
       if (busca && !c.nome.toLowerCase().includes(busca)) return false;
       if (state.ugb && c.ugb !== state.ugb) return false;
       if (state.ga && c.ga !== state.ga) return false;
+      if (state.setor && c.setor !== state.setor) return false;
       if (state.status === "Realizado" && c.piorStatus !== "Realizado") return false;
       if (state.status === "Atrasado" && c.piorStatus !== "Atrasado") return false;
       if (state.status === "Pendente" && !(c.piorStatus === "Pendente" || c.piorStatus === "Atrasado")) return false;
@@ -121,6 +135,7 @@
         <td>${c.cargo || "—"}</td>
         <td>${c.ugb || "—"}</td>
         <td>${c.ga || "—"}</td>
+        <td>${c.setor || "—"}</td>
         <td>${c.lider || "—"}</td>
         <td class="num">${MT.fmtInt(c.total)}</td>
         <td style="min-width:120px;">
@@ -129,7 +144,7 @@
         </td>
         <td>${MT.statusChip(c.piorStatus)}</td>
       </tr>
-    `).join("") || `<tr><td colspan="8" class="footnote" style="padding:18px;">Nenhum colaborador encontrado com os filtros atuais.</td></tr>`;
+    `).join("") || `<tr><td colspan="9" class="footnote" style="padding:18px;">Nenhum colaborador encontrado com os filtros atuais.</td></tr>`;
 
     document.querySelectorAll("#tbody-colaboradores tr[data-nome]").forEach((row) => {
       row.addEventListener("click", () => abrirDetalhe(row.dataset.nome));
@@ -169,15 +184,18 @@
   });
   document.getElementById("f-ugb").addEventListener("change", (e) => { state.ugb = e.target.value; renderTabela(); });
   document.getElementById("f-ga").addEventListener("change", (e) => { state.ga = e.target.value; renderTabela(); });
+  document.getElementById("f-setor").addEventListener("change", (e) => { state.setor = e.target.value; renderTabela(); });
   document.getElementById("f-status").addEventListener("change", (e) => { state.status = e.target.value; renderTabela(); });
   document.getElementById("f-limpar").addEventListener("click", () => {
-    state.busca = ""; state.ugb = ""; state.ga = ""; state.status = "";
+    state.busca = ""; state.ugb = ""; state.ga = ""; state.setor = ""; state.status = "";
     document.getElementById("f-busca").value = "";
     document.getElementById("f-ugb").value = "";
     document.getElementById("f-ga").value = "";
+    document.getElementById("f-setor").value = "";
     document.getElementById("f-status").value = "";
     renderTabela();
   });
 
   renderTabela();
+  if (colaboradorUrl && colaboradores.some((c) => c.nome === colaboradorUrl)) abrirDetalhe(colaboradorUrl);
 })();
