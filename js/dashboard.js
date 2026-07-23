@@ -54,7 +54,7 @@
     </div>
 
     <div class="section-head">
-      <h2>Rankings — menor % concluído primeiro</h2>
+      <h2>Rankings — maior % concluído primeiro</h2>
       <span class="footnote">Lista completa, role pra ver todo mundo · clique num nome, líder ou setor pra ver o detalhe · líder/setor/áreas exigem mínimo 5 registros</span>
     </div>
     <div class="grid grid-3">
@@ -92,7 +92,7 @@
 
     <div class="grid grid-2">
       <div class="card">
-        <div class="card-head"><div><div class="card-title">Áreas com menor % concluído</div><div class="card-sub">Agrupamento por GA do colaborador · mínimo 5 registros</div></div></div>
+        <div class="card-head"><div><div class="card-title">Áreas com maior % concluído</div><div class="card-sub">Agrupamento por GA do colaborador · mínimo 5 registros</div></div></div>
         <div class="chart-host chart-host-scroll" id="chart-areas-atraso"></div>
       </div>
       <div class="card">
@@ -149,7 +149,7 @@
       return Object.entries(porGrupo)
         .filter(([, v]) => v.total >= minRegistros)
         .map(([label, v]) => ({ label, value: Math.round((v.realizado / v.total) * 1000) / 10, total: v.total }))
-        .sort((a, b) => a.value - b.value);
+        .sort((a, b) => b.value - a.value);
     }
 
     function itensDoRanking(ranking) {
