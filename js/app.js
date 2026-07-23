@@ -209,6 +209,23 @@ const MT = (() => {
     }
   }
 
+  // Categoria macro do colaborador, derivada por palavra-chave do CARGO —
+  // não existe um campo "setor" com essas categorias nos dados de origem
+  // (Setor_Colaborador é código de unidade, tipo "CA"/"JG"), então isso é
+  // uma classificação aproximada a partir do texto do cargo. Ordem importa:
+  // termos mais específicos (Suprimentos/Infraestrutura) checados antes de
+  // "Produção" pra não capturar cargos como "Supervisor de Suprimentos de
+  // Obra" na categoria errada.
+  const CATEGORIAS_CARGO = ["Produção", "Infraestrutura", "Suprimentos", "Vendas", "Administrativo"];
+  function categoriaCargo(cargo) {
+    const c = (cargo || "").toLowerCase();
+    if (c.includes("suprimento")) return "Suprimentos";
+    if (c.includes("infraestrutura")) return "Infraestrutura";
+    if (c.includes("produção") || c.includes("producao")) return "Produção";
+    if (c.includes("vendas")) return "Vendas";
+    return "Administrativo";
+  }
+
   // Se todos os registros compartilham o mesmo valor em `campo`, devolve
   // esse valor; senão devolve "" (fica em branco no formulário pra
   // preencher à mão — ex.: lista com colaboradores de treinamentos
@@ -297,6 +314,7 @@ const MT = (() => {
     applyStoredTheme, wireThemeToggle, renderShell, initials,
     loadTreinamentos, loadTreinamentosFiltrados, getUgbAtiva, setUgbAtiva, limparUgbAtiva,
     fmtInt, fmtPct, fmtDate, statusChip, diasAte, popularFiltro, exportarLPT,
+    CATEGORIAS_CARGO, categoriaCargo,
   };
 })();
 

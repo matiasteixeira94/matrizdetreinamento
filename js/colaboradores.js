@@ -23,6 +23,7 @@
         map.set(key, {
           nome: key, cargo: r.Cargo_Colaborador, ugb: r.UGB_Colaborador,
           ga: r.GA_Colaborador, setor: r.Setor_Colaborador, lider: r.NomeLider,
+          categoria: MT.categoriaCargo(r.Cargo_Colaborador),
           registros: [],
         });
       }
@@ -39,13 +40,14 @@
     }).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   })();
 
-  // Vindo do ranking da Visão Geral: ?setor=X abre já filtrado por setor;
-  // ?colaborador=X busca e abre o detalhe direto dessa pessoa.
+  // Vindo do ranking da Visão Geral: ?setor=X ou ?categoria=X abrem já
+  // filtrados; ?colaborador=X busca e abre o detalhe direto dessa pessoa.
   const params = new URLSearchParams(location.search);
   const setorUrl = params.get("setor") || "";
+  const categoriaUrl = params.get("categoria") || "";
   const colaboradorUrl = params.get("colaborador") || "";
 
-  const state = { busca: colaboradorUrl, ugb: "", ga: "", setor: setorUrl, status: "", selecionado: null };
+  const state = { busca: colaboradorUrl, ugb: "", ga: "", setor: setorUrl, categoria: categoriaUrl, status: "", selecionado: null };
 
   content.innerHTML = `
     <div class="filter-bar">
@@ -64,6 +66,13 @@
       <div class="field">
         <label for="f-setor">Setor</label>
         <select class="select" id="f-setor"><option value="">Todos</option></select>
+      </div>
+      <div class="field">
+        <label for="f-categoria">Categoria (pelo cargo)</label>
+        <select class="select" id="f-categoria">
+          <option value="">Todas</option>
+          ${MT.CATEGORIAS_CARGO.map((c) => `<option value="${c}">${c}</option>`).join("")}
+        </select>
       </div>
       <div class="field">
         <label for="f-status">Situação</label>
@@ -111,6 +120,7 @@
   MT.popularFiltro(document.getElementById("f-setor"), registros, "Setor_Colaborador");
   document.getElementById("f-busca").value = state.busca;
   document.getElementById("f-setor").value = state.setor;
+  document.getElementById("f-categoria").value = state.categoria;
 
   function filtrarColaboradores() {
     const busca = state.busca.trim().toLowerCase();
@@ -119,6 +129,7 @@
       if (state.ugb && c.ugb !== state.ugb) return false;
       if (state.ga && c.ga !== state.ga) return false;
       if (state.setor && c.setor !== state.setor) return false;
+      if (state.categoria && c.categoria !== state.categoria) return false;
       if (state.status === "Realizado" && c.piorStatus !== "Realizado") return false;
       if (state.status === "Atrasado" && c.piorStatus !== "Atrasado") return false;
       if (state.status === "Pendente" && !(c.piorStatus === "Pendente" || c.piorStatus === "Atrasado")) return false;
@@ -185,13 +196,15 @@
   document.getElementById("f-ugb").addEventListener("change", (e) => { state.ugb = e.target.value; renderTabela(); });
   document.getElementById("f-ga").addEventListener("change", (e) => { state.ga = e.target.value; renderTabela(); });
   document.getElementById("f-setor").addEventListener("change", (e) => { state.setor = e.target.value; renderTabela(); });
+  document.getElementById("f-categoria").addEventListener("change", (e) => { state.categoria = e.target.value; renderTabela(); });
   document.getElementById("f-status").addEventListener("change", (e) => { state.status = e.target.value; renderTabela(); });
   document.getElementById("f-limpar").addEventListener("click", () => {
-    state.busca = ""; state.ugb = ""; state.ga = ""; state.setor = ""; state.status = "";
+    state.busca = ""; state.ugb = ""; state.ga = ""; state.setor = ""; state.categoria = ""; state.status = "";
     document.getElementById("f-busca").value = "";
     document.getElementById("f-ugb").value = "";
     document.getElementById("f-ga").value = "";
     document.getElementById("f-setor").value = "";
+    document.getElementById("f-categoria").value = "";
     document.getElementById("f-status").value = "";
     renderTabela();
   });

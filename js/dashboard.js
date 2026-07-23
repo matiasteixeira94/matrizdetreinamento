@@ -54,20 +54,20 @@
 
     <div class="section-head">
       <h2>Rankings — maior % de atraso primeiro</h2>
-      <span class="footnote">Clique num líder ou setor pra ver a equipe / lista completa · mínimo 5 registros</span>
+      <span class="footnote">Lista completa, role pra ver todo mundo · clique num líder ou setor pra ver a equipe / lista completa · mínimo 5 registros</span>
     </div>
     <div class="grid grid-3">
       <div class="card">
-        <div class="card-head"><div><div class="card-title">Colaboradores</div><div class="card-sub">Top 10</div></div></div>
-        <div class="chart-host" id="chart-ranking-colaborador"></div>
+        <div class="card-head"><div><div class="card-title">Colaboradores</div><div class="card-sub">Todos os setores</div></div></div>
+        <div class="chart-host chart-host-scroll" id="chart-ranking-colaborador"></div>
       </div>
       <div class="card">
         <div class="card-head"><div><div class="card-title">Líderes</div><div class="card-sub">Clique pra ver a equipe</div></div></div>
-        <div class="chart-host" id="chart-ranking-lider"></div>
+        <div class="chart-host chart-host-scroll" id="chart-ranking-lider"></div>
       </div>
       <div class="card">
-        <div class="card-head"><div><div class="card-title">Setores</div><div class="card-sub">Clique pra ver todos os colaboradores</div></div></div>
-        <div class="chart-host" id="chart-ranking-setor"></div>
+        <div class="card-head"><div><div class="card-title">Setores</div><div class="card-sub">Produção, Infraestrutura, Suprimentos, Vendas, Administrativo — pelo cargo</div></div></div>
+        <div class="chart-host chart-host-scroll" id="chart-ranking-setor"></div>
       </div>
     </div>
 
@@ -85,7 +85,7 @@
     <div class="grid grid-2">
       <div class="card">
         <div class="card-head"><div><div class="card-title">Áreas com maior % de atraso</div><div class="card-sub">Agrupamento por GA do colaborador · mínimo 5 registros</div></div></div>
-        <div class="chart-host" id="chart-areas-atraso"></div>
+        <div class="chart-host chart-host-scroll" id="chart-areas-atraso"></div>
       </div>
       <div class="card">
         <div class="card-head"><div><div class="card-title">Instrutores com mais treinamentos realizados</div><div class="card-sub">Top 10</div></div></div>
@@ -123,11 +123,16 @@
 
     // Ranking genérico por % de atraso — usado pra Colaborador, Líder, Setor
     // e GA. Mínimo de 5 registros evita destacar grupos minúsculos onde 1
-    // atraso já vira 50%+ e distorce o ranking.
-    function rankingPorAtraso(campo, rotuloVazio) {
+    // atraso já vira 50%+ e distorce o ranking. Mostra a lista inteira (sem
+    // top N) — o card tem rolagem própria (.chart-host-scroll) pra caber.
+    // `campoOuFn` aceita tanto o nome de um campo do registro quanto uma
+    // função (registro) => chave, pra grupos derivados como a categoria por
+    // cargo.
+    function rankingPorAtraso(campoOuFn, rotuloVazio) {
+      const obterChave = typeof campoOuFn === "function" ? campoOuFn : (r) => r[campoOuFn];
       const porGrupo = {};
       for (const r of registros) {
-        const chave = r[campo] || rotuloVazio;
+        const chave = obterChave(r) || rotuloVazio;
         porGrupo[chave] ??= { total: 0, atrasado: 0 };
         porGrupo[chave].total++;
         if (r.Status === "Atrasado") porGrupo[chave].atrasado++;
@@ -135,12 +140,11 @@
       return Object.entries(porGrupo)
         .filter(([, v]) => v.total >= 5)
         .map(([label, v]) => ({ label, value: Math.round((v.atrasado / v.total) * 1000) / 10, total: v.total }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 10);
+        .sort((a, b) => b.value - a.value);
     }
 
-    function renderRankingAtraso(hostId, campo, rotuloVazio, aoClicar) {
-      const ranking = rankingPorAtraso(campo, rotuloVazio);
+    function renderRankingAtraso(hostId, campoOuFn, rotuloVazio, aoClicar) {
+      const ranking = rankingPorAtraso(campoOuFn, rotuloVazio);
       MTCharts.hbars(document.getElementById(hostId), {
         items: ranking.map((r) => ({
           label: `${r.label} (${MT.fmtInt(r.total)})`, value: r.value, _nome: r.label,
@@ -158,8 +162,8 @@
     renderRankingAtraso("chart-ranking-lider", "NomeLider", "Sem líder", (nome) => {
       window.location.href = `equipes.html?lider=${encodeURIComponent(nome)}`;
     });
-    renderRankingAtraso("chart-ranking-setor", "Setor_Colaborador", "Sem setor", (setor) => {
-      window.location.href = `colaboradores.html?setor=${encodeURIComponent(setor)}`;
+    renderRankingAtraso("chart-ranking-setor", (r) => MT.categoriaCargo(r.Cargo_Colaborador), "Sem categoria", (categoria) => {
+      window.location.href = `colaboradores.html?categoria=${encodeURIComponent(categoria)}`;
     });
     renderRankingAtraso("chart-areas-atraso", "GA_Colaborador", "Sem GA");
 

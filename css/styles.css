@@ -294,6 +294,10 @@ h1, h2, h3, .num-hero, .brand-word {
 
 /* ---- Gráficos (SVG) ---- */
 .chart-host { position: relative; }
+/* Rankings (hbars) mostram a lista inteira em vez de só top N — precisam de
+   um teto de altura com rolagem própria, senão a Visão Geral fica infinita
+   quando um grupo tem muita gente acima do mínimo de 5 registros. */
+.chart-host-scroll { max-height: 420px; overflow-y: auto; padding-right: 6px; }
 .mt-axis-label { font-size: 10.5px; fill: var(--ink-muted); font-family: var(--font-body); }
 .mt-bar, .mt-pt { cursor: pointer; transition: opacity .1s ease; }
 .mt-bar:hover { opacity: 0.82; }
