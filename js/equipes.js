@@ -5,9 +5,15 @@
   const content = document.getElementById("mt-content");
   content.innerHTML = `<div class="empty-state">Carregando matriz de treinamentos…</div>`;
 
-  let registros;
+  let registros, nomesAtivos;
   try {
-    registros = await MT.loadTreinamentosFiltrados();
+    [registros, nomesAtivos] = await Promise.all([
+      MT.loadTreinamentosFiltrados(),
+      MT.carregarNomesAtivos(),
+    ]);
+    // Só colaboradores ativos contam pra equipe — a matriz de treinamentos
+    // guarda histórico de gente que já saiu da empresa também.
+    registros = registros.filter((r) => nomesAtivos.has(MT.normalizarNome(r.NomeColaborador)));
   } catch (e) {
     content.innerHTML = `<div class="card empty-state">${e.message}</div>`;
     return;
@@ -27,15 +33,17 @@
       eq.registros.push(r);
       if (r.NomeColaborador) eq.colaboradores.add(r.NomeColaborador);
     }
-    return [...map.values()].map((eq) => {
-      const total = eq.registros.length;
-      const realizado = eq.registros.filter((r) => r.Status === "Realizado").length;
-      const atrasado = eq.registros.filter((r) => r.Status === "Atrasado").length;
-      return {
-        ...eq, total, realizado, atrasado, tamanhoEquipe: eq.colaboradores.size,
-        pctConclusao: total ? (realizado / total) * 100 : 0,
-      };
-    }).sort((a, b) => b.tamanhoEquipe - a.tamanhoEquipe);
+    return [...map.values()]
+      .filter((eq) => nomesAtivos.has(MT.normalizarNome(eq.nome))) // líder também precisa estar ativo
+      .map((eq) => {
+        const total = eq.registros.length;
+        const realizado = eq.registros.filter((r) => r.Status === "Realizado").length;
+        const atrasado = eq.registros.filter((r) => r.Status === "Atrasado").length;
+        return {
+          ...eq, total, realizado, atrasado, tamanhoEquipe: eq.colaboradores.size,
+          pctConclusao: total ? (realizado / total) * 100 : 0,
+        };
+      }).sort((a, b) => b.tamanhoEquipe - a.tamanhoEquipe);
   })();
 
   // Vindo do ranking da Visão Geral: ?lider=X já abre a equipe desse líder.

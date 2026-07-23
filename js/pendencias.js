@@ -10,7 +10,13 @@
 
   let registros;
   try {
-    registros = await MT.loadTreinamentosFiltrados();
+    const [dados, nomesAtivos] = await Promise.all([
+      MT.loadTreinamentosFiltrados(),
+      MT.carregarNomesAtivos(),
+    ]);
+    // Pendência de quem já saiu da empresa não é acionável — a matriz de
+    // treinamentos guarda o histórico independente de status de emprego.
+    registros = dados.filter((r) => nomesAtivos.has(MT.normalizarNome(r.NomeColaborador)));
   } catch (e) {
     content.innerHTML = `<div class="card empty-state">${e.message}</div>`;
     return;

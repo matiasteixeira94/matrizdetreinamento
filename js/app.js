@@ -142,6 +142,20 @@ const MT = (() => {
     return _cache;
   }
 
+  // Nomes (normalizados) de quem está ativo hoje no quadro de RH — usado
+  // pra tirar gente desligada de rankings/listas que vêm da matriz de
+  // treinamentos (que não tem conceito de "ativo", só o histórico de quem
+  // já teve algum treinamento atribuído).
+  let _cacheAtivos = null;
+  async function carregarNomesAtivos({ force = false } = {}) {
+    if (_cacheAtivos && !force) return _cacheAtivos;
+    const res = await fetch("/api/quadro");
+    if (!res.ok) throw new Error("Falha ao carregar o quadro de colaboradores ativos");
+    const dados = await res.json();
+    _cacheAtivos = new Set(dados.registros.map((r) => normalizarNome(r.NOME)));
+    return _cacheAtivos;
+  }
+
   // UGB escolhida na tela inicial (inicio.html) — persiste entre páginas via
   // localStorage. `null`/ausente significa "todas as UGBs juntas".
   function getUgbAtiva() { return localStorage.getItem(UGB_KEY) || null; }
@@ -221,7 +235,8 @@ const MT = (() => {
     const c = (cargo || "").toLowerCase();
     if (c.includes("suprimento")) return "Suprimentos";
     if (c.includes("infraestrutura")) return "Infraestrutura";
-    if (c.includes("produção") || c.includes("producao")) return "Produção";
+    // Produção engloba também Assistência Técnica e Acabamento.
+    if (c.includes("produção") || c.includes("producao") || c.includes("acabamento") || c.includes("assistência") || c.includes("assistencia")) return "Produção";
     if (c.includes("vendas")) return "Vendas";
     return "Administrativo";
   }
@@ -344,7 +359,7 @@ const MT = (() => {
     applyStoredTheme, wireThemeToggle, renderShell, initials,
     loadTreinamentos, loadTreinamentosFiltrados, getUgbAtiva, setUgbAtiva, limparUgbAtiva,
     fmtInt, fmtPct, fmtDate, statusChip, diasAte, popularFiltro, exportarLPT,
-    CATEGORIAS_CARGO, categoriaCargo, normalizarNome, ugbPorSetorQuadro,
+    CATEGORIAS_CARGO, categoriaCargo, normalizarNome, ugbPorSetorQuadro, carregarNomesAtivos,
   };
 })();
 

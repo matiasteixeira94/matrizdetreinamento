@@ -5,9 +5,17 @@
   const content = document.getElementById("mt-content");
   content.innerHTML = `<div class="empty-state">Carregando matriz de treinamentos…</div>`;
 
-  let registros;
+  let registros, nomesAtivos;
   try {
-    registros = await MT.loadTreinamentosFiltrados();
+    [registros, nomesAtivos] = await Promise.all([
+      MT.loadTreinamentosFiltrados(),
+      MT.carregarNomesAtivos(),
+    ]);
+    // A matriz de treinamentos não tem conceito de "ativo" — é histórico de
+    // quem já teve algum treinamento atribuído, incluindo gente desligada.
+    // Filtra pelo quadro de RH pra Visão Geral (stats, gráficos e rankings)
+    // refletir só quem trabalha aqui hoje.
+    registros = registros.filter((r) => nomesAtivos.has(MT.normalizarNome(r.NomeColaborador)));
   } catch (e) {
     content.innerHTML = `<div class="card empty-state">${e.message}</div>`;
     return;
@@ -159,8 +167,8 @@
       }));
     }
 
-    function renderRankingConclusao(hostId, campoOuFn, rotuloVazio, aoClicar) {
-      const ranking = rankingPorConclusao(campoOuFn, rotuloVazio);
+    function renderRankingConclusao(hostId, campoOuFn, rotuloVazio, aoClicar, fonte) {
+      const ranking = rankingPorConclusao(campoOuFn, rotuloVazio, 5, fonte);
       MTCharts.hbars(document.getElementById(hostId), {
         items: itensDoRanking(ranking),
         valueFormat: (v) => MT.fmtPct(v, 0),
@@ -191,9 +199,13 @@
     }
     renderRankingColaboradores();
 
+    // Líder também precisa estar ativo (o colaborador reportado já está,
+    // pelo filtro geral de `registros`, mas o líder listado no registro dele
+    // pode ter saído da empresa desde então).
+    const registrosLiderAtivo = registros.filter((r) => nomesAtivos.has(MT.normalizarNome(r.NomeLider)));
     renderRankingConclusao("chart-ranking-lider", "NomeLider", "Sem líder", (nome) => {
       window.location.href = `equipes.html?lider=${encodeURIComponent(nome)}`;
-    });
+    }, registrosLiderAtivo);
     renderRankingConclusao("chart-ranking-setor", (r) => MT.categoriaCargo(r.Cargo_Colaborador), "Sem categoria", (categoria) => {
       window.location.href = `colaboradores.html?categoria=${encodeURIComponent(categoria)}`;
     });
