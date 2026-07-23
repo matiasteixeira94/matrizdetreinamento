@@ -54,7 +54,7 @@
     </div>
 
     <div class="section-head">
-      <h2>Rankings — maior % de atraso primeiro</h2>
+      <h2>Rankings — menor % concluído primeiro</h2>
       <span class="footnote">Lista completa, role pra ver todo mundo · clique num nome, líder ou setor pra ver o detalhe · líder/setor/áreas exigem mínimo 5 registros</span>
     </div>
     <div class="grid grid-3">
@@ -92,7 +92,7 @@
 
     <div class="grid grid-2">
       <div class="card">
-        <div class="card-head"><div><div class="card-title">Áreas com maior % de atraso</div><div class="card-sub">Agrupamento por GA do colaborador · mínimo 5 registros</div></div></div>
+        <div class="card-head"><div><div class="card-title">Áreas com menor % concluído</div><div class="card-sub">Agrupamento por GA do colaborador · mínimo 5 registros</div></div></div>
         <div class="chart-host chart-host-scroll" id="chart-areas-atraso"></div>
       </div>
       <div class="card">
@@ -129,36 +129,38 @@
       legendLabel: "Treinamentos realizados por mês",
     });
 
-    // Ranking genérico por % de atraso — usado pra Líder, Setor e GA. Mínimo
-    // de 5 registros evita destacar grupos minúsculos onde 1 atraso já vira
-    // 50%+ e distorce o ranking. Mostra a lista inteira (sem top N) — o card
-    // tem rolagem própria (.chart-host-scroll) pra caber. `campoOuFn` aceita
-    // tanto o nome de um campo do registro quanto uma função
-    // (registro) => chave, pra grupos derivados como a categoria por cargo.
-    function rankingPorAtraso(campoOuFn, rotuloVazio, minRegistros = 5, fonte = registros) {
+    // Ranking genérico por % concluído (Realizado / total) — usado pra
+    // Líder, Setor e GA. Mínimo de 5 registros evita destacar grupos
+    // minúsculos onde 1 registro já vira 0% ou 100% e distorce o ranking.
+    // Ordena do menor % concluído pro maior — quem mais precisa de atenção
+    // primeiro. Mostra a lista inteira (sem top N) — o card tem rolagem
+    // própria (.chart-host-scroll) pra caber. `campoOuFn` aceita tanto o
+    // nome de um campo do registro quanto uma função (registro) => chave,
+    // pra grupos derivados como a categoria por cargo.
+    function rankingPorConclusao(campoOuFn, rotuloVazio, minRegistros = 5, fonte = registros) {
       const obterChave = typeof campoOuFn === "function" ? campoOuFn : (r) => r[campoOuFn];
       const porGrupo = {};
       for (const r of fonte) {
         const chave = obterChave(r) || rotuloVazio;
-        porGrupo[chave] ??= { total: 0, atrasado: 0 };
+        porGrupo[chave] ??= { total: 0, realizado: 0 };
         porGrupo[chave].total++;
-        if (r.Status === "Atrasado") porGrupo[chave].atrasado++;
+        if (r.Status === "Realizado") porGrupo[chave].realizado++;
       }
       return Object.entries(porGrupo)
         .filter(([, v]) => v.total >= minRegistros)
-        .map(([label, v]) => ({ label, value: Math.round((v.atrasado / v.total) * 1000) / 10, total: v.total }))
-        .sort((a, b) => b.value - a.value);
+        .map(([label, v]) => ({ label, value: Math.round((v.realizado / v.total) * 1000) / 10, total: v.total }))
+        .sort((a, b) => a.value - b.value);
     }
 
     function itensDoRanking(ranking) {
       return ranking.map((r) => ({
         label: `${r.label} (${MT.fmtInt(r.total)})`, value: r.value, _nome: r.label,
-        color: r.value >= 40 ? "var(--status-critical)" : r.value >= 15 ? "var(--status-warning)" : "var(--status-good)",
+        color: r.value >= 70 ? "var(--status-good)" : r.value >= 40 ? "var(--status-warning)" : "var(--status-critical)",
       }));
     }
 
-    function renderRankingAtraso(hostId, campoOuFn, rotuloVazio, aoClicar) {
-      const ranking = rankingPorAtraso(campoOuFn, rotuloVazio);
+    function renderRankingConclusao(hostId, campoOuFn, rotuloVazio, aoClicar) {
+      const ranking = rankingPorConclusao(campoOuFn, rotuloVazio);
       MTCharts.hbars(document.getElementById(hostId), {
         items: itensDoRanking(ranking),
         valueFormat: (v) => MT.fmtPct(v, 0),
@@ -179,7 +181,7 @@
         : stateRankingColab.tipo === "indireto"
           ? registros.filter((r) => r.TipoColaborador === "Indireto")
           : registros;
-      const ranking = rankingPorAtraso("NomeColaborador", "Sem nome", 1, fonte);
+      const ranking = rankingPorConclusao("NomeColaborador", "Sem nome", 1, fonte);
       MTCharts.hbars(document.getElementById("chart-ranking-colaborador"), {
         items: itensDoRanking(ranking),
         valueFormat: (v) => MT.fmtPct(v, 0),
@@ -189,13 +191,13 @@
     }
     renderRankingColaboradores();
 
-    renderRankingAtraso("chart-ranking-lider", "NomeLider", "Sem líder", (nome) => {
+    renderRankingConclusao("chart-ranking-lider", "NomeLider", "Sem líder", (nome) => {
       window.location.href = `equipes.html?lider=${encodeURIComponent(nome)}`;
     });
-    renderRankingAtraso("chart-ranking-setor", (r) => MT.categoriaCargo(r.Cargo_Colaborador), "Sem categoria", (categoria) => {
+    renderRankingConclusao("chart-ranking-setor", (r) => MT.categoriaCargo(r.Cargo_Colaborador), "Sem categoria", (categoria) => {
       window.location.href = `colaboradores.html?categoria=${encodeURIComponent(categoria)}`;
     });
-    renderRankingAtraso("chart-areas-atraso", "GA_Colaborador", "Sem GA");
+    renderRankingConclusao("chart-areas-atraso", "GA_Colaborador", "Sem GA");
 
     const porInstrutor = {};
     for (const r of registros) {

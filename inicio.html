@@ -119,7 +119,7 @@
         if (r.Status === "Realizado") porUgb[ugb].realizado++;
         if (r.Status === "Atrasado") porUgb[ugb].atrasado++;
       }
-      const ugbs = Object.keys(porUgb).sort((a, b) => porUgb[b].total - porUgb[a].total);
+      const ugbs = Object.keys(porUgb).sort((a, b) => a.localeCompare(b, "pt-BR"));
 
       // Anel de progresso colorido pela % de conclusão — vermelho/âmbar/verde
       // dão uma leitura de saúde da UGB antes mesmo de entrar nela.
