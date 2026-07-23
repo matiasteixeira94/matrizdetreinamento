@@ -231,13 +231,59 @@ const MT = (() => {
   // "Produção" pra não capturar cargos como "Supervisor de Suprimentos de
   // Obra" na categoria errada.
   const CATEGORIAS_CARGO = ["Produção", "Infraestrutura", "Suprimentos", "Vendas", "Administrativo"];
+
+  // Mapa cargo → setor extraído de "Quadro Geral - Unidade de Caruaru.xls"
+  // (RH, 512 colaboradores, coluna SETOR sem ambiguidade por cargo) — fonte
+  // mais confiável que existe pra saber se um cargo é Produção ou não, longe
+  // de perfeita por palavra-chave (ex.: "Eletricista", "Marceneiro" e
+  // "Gerente de UGB" são Produção lá, sem ter a palavra "produção" no nome).
+  // Chave normalizada (maiúsculas, sem acento, sem "(A)"/sufixo de gênero).
+  const SETOR_POR_CARGO = {
+    "SERVENTE DE PATRIMONIO": "Administrativo", "OPERADOR LIDER DE INFRAESTRUTURA": "Infraestrutura",
+    "PEDREIRO DE PRODUCAO": "Produção", "SERVENTE DE INFRAESTRUTURA": "Infraestrutura",
+    "OPERADOR DE INFRAESTRUTURA": "Infraestrutura", "OPERADOR DE ASSISTENCIA TECNICA": "Produção",
+    "PEDREIRO LIDER DE PRODUCAO": "Produção", "SERVENTE DE SUSTENTABILIDADE": "Administrativo",
+    "SERVENTE DE PRODUCAO": "Produção", "SERVENTE DE ASSISTENCIA TECNICA": "Produção",
+    "SUPERVISOR DE INFRAESTRUTURA": "Infraestrutura", "ASSISTENTE DE SUPRIMENTOS DE CONTROLE": "Administrativo",
+    "ASSISTENTE DE SUPRIMENTOS": "Administrativo", "APRENDIZ ASSISTENTE DE GERENCIAMENTO DE OBRAS": "Produção",
+    "SERVENTE POLIVALENTE DE INFRAESTRUTURA": "Infraestrutura", "AUXILIAR DE SUPRIMENTOS": "Administrativo",
+    "SERVENTE DE BETONEIRA": "Administrativo", "SUPERVISOR DE PRODUCAO": "Produção",
+    "SERVENTEPOLIVALENTE DE PRODUCAO": "Produção", "APRENDIZ ADMINISTRATIVO": "Administrativo",
+    "SUPERVISOR DE PRODUCAO LIDER": "Produção", "SUPERVISOR DE ACABAMENTO": "Produção",
+    "ELETRICISTA": "Produção", "SERVENTE POLIVALENTE DE PRODUCAO": "Produção",
+    "MARCENEIRO": "Produção", "OPERADOR DE PRODUCAO": "Produção",
+    "OPERADOR DE BETONEIRA": "Administrativo", "SUPERVISOR DE SUPRIMENTOS DE DISTRIBUICAO": "Administrativo",
+    "APONTADOR DE OBRA": "Administrativo", "SUPERVISOR ADMINISTRATIVO DE UGB": "Administrativo",
+    "AUXILIAR DE SERVICOS GERAIS": "Administrativo", "SUPERVISOR LIDER DE ACABAMENTO E ASSIST TECNICA": "Produção",
+    "SUPERVISOR DE SUPRIMENTOS DE DISTRIBUICAO LIDER": "Administrativo", "TECNICO DE ENFERMAGEM": "Administrativo",
+    "ESTAGIARIO DE SEGURANCA DO TRABALHO DE OBRA": "Administrativo", "LIDER DE INFRAESTRUTURA": "Infraestrutura",
+    "AUXLIAR DE SUPRIMENTOS": "Administrativo", "AUXILIAR DE KIT'S E FERRAMENTAS": "Administrativo",
+    "OPERADOR DE MINI CARREGADEIRA": "Administrativo", "OPERADOR DE DUMPER": "Administrativo",
+    "SUPERVISOR DE ASSISTENCIA TECNICA": "Produção", "TECNICO DE SEGURANCA DO TRABALHO": "Administrativo",
+    "SUPERVISORA SUPRIMENTOS DE CONTAINER": "Administrativo", "SERVENTE POLIVALENTE DE ASSISTENCIA TECNICA": "Produção",
+    "TECNICO DE SEGURANCA DO TRABALHO DE OBRA": "Administrativo", "ASSISTENTE ADMINISTRATIVO DE UGB": "Administrativo",
+    "ASSISTENTE DE PESSOAL": "Administrativo", "GERENTE DE GESTAO DE UGB": "Administrativo",
+    "GERENTE DE UGB": "Produção", "SUPERVISOR DE SUPRIMENTO DE CONTROLE": "Administrativo",
+    "SUPERVISOR DE SAUDE E SEGURANCA DO TRABALHO": "Administrativo", "GERENTE DE INFRAESTRUTURA": "Infraestrutura",
+    "ASSISTENTE DE SUPRIMENTOS DE CONTAINER": "Administrativo",
+  };
+
   function categoriaCargo(cargo) {
     const c = (cargo || "").toLowerCase();
+    // Palavras-chave inequívocas primeiro — pegam variações (Canteiro,
+    // Controle, Obra, "- Vertical", "OléVM"...) que não estão named tale qual
+    // no mapa abaixo, sem risco de errar categoria.
     if (c.includes("suprimento")) return "Suprimentos";
-    if (c.includes("infraestrutura")) return "Infraestrutura";
-    // Produção engloba também Assistência Técnica e Acabamento.
-    if (c.includes("produção") || c.includes("producao") || c.includes("acabamento") || c.includes("assistência") || c.includes("assistencia")) return "Produção";
     if (c.includes("vendas")) return "Vendas";
+
+    const chave = (cargo || "")
+      .normalize("NFD").split("").filter((ch) => { const cc = ch.charCodeAt(0); return cc < 0x0300 || cc > 0x036f; }).join("")
+      .toUpperCase().replace(/\(A\)/g, "").replace(/ - VERTICAL$/, "").replace(/ OLEVM$/, "").trim().replace(/\s+/g, " ");
+    if (SETOR_POR_CARGO[chave]) return SETOR_POR_CARGO[chave];
+
+    if (c.includes("infraestrutura")) return "Infraestrutura";
+    // Produção engloba também Assistência Técnica, Acabamento e Pintor.
+    if (c.includes("produção") || c.includes("producao") || c.includes("acabamento") || c.includes("assistência") || c.includes("assistencia") || c.includes("pintor")) return "Produção";
     return "Administrativo";
   }
 
