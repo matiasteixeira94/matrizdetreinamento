@@ -21,6 +21,7 @@
   const atrasado = porStatus["Atrasado"] || 0;
   const outros = total - realizado - pendente - atrasado;
   const pct = (n) => (total ? (n / total) * 100 : 0);
+  const stateRankingColab = { tipo: "" }; // "" | "direto" | "indireto"
 
   content.innerHTML = `
     <p class="footnote" style="margin-top:-6px;">
@@ -54,11 +55,18 @@
 
     <div class="section-head">
       <h2>Rankings — maior % de atraso primeiro</h2>
-      <span class="footnote">Lista completa, role pra ver todo mundo · clique num líder ou setor pra ver a equipe / lista completa · mínimo 5 registros</span>
+      <span class="footnote">Lista completa, role pra ver todo mundo · clique num nome, líder ou setor pra ver o detalhe · líder/setor/áreas exigem mínimo 5 registros</span>
     </div>
     <div class="grid grid-3">
       <div class="card">
-        <div class="card-head"><div><div class="card-title">Colaboradores</div><div class="card-sub">Todos os setores</div></div></div>
+        <div class="card-head">
+          <div><div class="card-title">Colaboradores</div><div class="card-sub">Todos os cargos e setores</div></div>
+        </div>
+        <div class="seg" id="seg-tipo-colaborador" style="margin-bottom:12px;">
+          <button type="button" data-tipo="" aria-pressed="true">Todos</button>
+          <button type="button" data-tipo="direto" aria-pressed="false">Diretos</button>
+          <button type="button" data-tipo="indireto" aria-pressed="false">Indiretos</button>
+        </div>
         <div class="chart-host chart-host-scroll" id="chart-ranking-colaborador"></div>
       </div>
       <div class="card">
@@ -121,44 +129,66 @@
       legendLabel: "Treinamentos realizados por mês",
     });
 
-    // Ranking genérico por % de atraso — usado pra Colaborador, Líder, Setor
-    // e GA. Mínimo de 5 registros evita destacar grupos minúsculos onde 1
-    // atraso já vira 50%+ e distorce o ranking. Mostra a lista inteira (sem
-    // top N) — o card tem rolagem própria (.chart-host-scroll) pra caber.
-    // `campoOuFn` aceita tanto o nome de um campo do registro quanto uma
-    // função (registro) => chave, pra grupos derivados como a categoria por
-    // cargo.
-    function rankingPorAtraso(campoOuFn, rotuloVazio) {
+    // Ranking genérico por % de atraso — usado pra Líder, Setor e GA. Mínimo
+    // de 5 registros evita destacar grupos minúsculos onde 1 atraso já vira
+    // 50%+ e distorce o ranking. Mostra a lista inteira (sem top N) — o card
+    // tem rolagem própria (.chart-host-scroll) pra caber. `campoOuFn` aceita
+    // tanto o nome de um campo do registro quanto uma função
+    // (registro) => chave, pra grupos derivados como a categoria por cargo.
+    function rankingPorAtraso(campoOuFn, rotuloVazio, minRegistros = 5, fonte = registros) {
       const obterChave = typeof campoOuFn === "function" ? campoOuFn : (r) => r[campoOuFn];
       const porGrupo = {};
-      for (const r of registros) {
+      for (const r of fonte) {
         const chave = obterChave(r) || rotuloVazio;
         porGrupo[chave] ??= { total: 0, atrasado: 0 };
         porGrupo[chave].total++;
         if (r.Status === "Atrasado") porGrupo[chave].atrasado++;
       }
       return Object.entries(porGrupo)
-        .filter(([, v]) => v.total >= 5)
+        .filter(([, v]) => v.total >= minRegistros)
         .map(([label, v]) => ({ label, value: Math.round((v.atrasado / v.total) * 1000) / 10, total: v.total }))
         .sort((a, b) => b.value - a.value);
+    }
+
+    function itensDoRanking(ranking) {
+      return ranking.map((r) => ({
+        label: `${r.label} (${MT.fmtInt(r.total)})`, value: r.value, _nome: r.label,
+        color: r.value >= 40 ? "var(--status-critical)" : r.value >= 15 ? "var(--status-warning)" : "var(--status-good)",
+      }));
     }
 
     function renderRankingAtraso(hostId, campoOuFn, rotuloVazio, aoClicar) {
       const ranking = rankingPorAtraso(campoOuFn, rotuloVazio);
       MTCharts.hbars(document.getElementById(hostId), {
-        items: ranking.map((r) => ({
-          label: `${r.label} (${MT.fmtInt(r.total)})`, value: r.value, _nome: r.label,
-          color: r.value >= 40 ? "var(--status-critical)" : r.value >= 15 ? "var(--status-warning)" : "var(--status-good)",
-        })),
+        items: itensDoRanking(ranking),
         valueFormat: (v) => MT.fmtPct(v, 0),
         showTarget: false,
         onClick: aoClicar ? (item) => aoClicar(item._nome) : null,
       });
     }
 
-    renderRankingAtraso("chart-ranking-colaborador", "NomeColaborador", "Sem nome", (nome) => {
-      window.location.href = `colaboradores.html?colaborador=${encodeURIComponent(nome)}`;
-    });
+    // Ranking de colaboradores — sem o mínimo de 5 registros dos outros
+    // rankings: exigir 5+ treinamentos por PESSOA excluía praticamente todo
+    // mundo com cargo Direto/Direto Infra (que costuma ter só 1-4
+    // treinamentos atribuídos), sobrando só supervisores indiretos e dando a
+    // falsa impressão de que só existia gente de Produção. Segmentado por
+    // Direto/Indireto (TipoColaborador) via o seg acima da lista.
+    function renderRankingColaboradores() {
+      const fonte = stateRankingColab.tipo === "direto"
+        ? registros.filter((r) => r.TipoColaborador === "Direto" || r.TipoColaborador === "Direto Infra")
+        : stateRankingColab.tipo === "indireto"
+          ? registros.filter((r) => r.TipoColaborador === "Indireto")
+          : registros;
+      const ranking = rankingPorAtraso("NomeColaborador", "Sem nome", 1, fonte);
+      MTCharts.hbars(document.getElementById("chart-ranking-colaborador"), {
+        items: itensDoRanking(ranking),
+        valueFormat: (v) => MT.fmtPct(v, 0),
+        showTarget: false,
+        onClick: (item) => { window.location.href = `colaboradores.html?colaborador=${encodeURIComponent(item._nome)}`; },
+      });
+    }
+    renderRankingColaboradores();
+
     renderRankingAtraso("chart-ranking-lider", "NomeLider", "Sem líder", (nome) => {
       window.location.href = `equipes.html?lider=${encodeURIComponent(nome)}`;
     });
@@ -177,6 +207,14 @@
       <tr><td>${nome}</td><td class="num">${MT.fmtInt(qtd)}</td></tr>
     `).join("") || `<tr><td colspan="2" class="footnote" style="padding:14px;">Sem registros de instrutor.</td></tr>`;
   }
+
+  document.querySelectorAll("#seg-tipo-colaborador button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      stateRankingColab.tipo = btn.dataset.tipo;
+      document.querySelectorAll("#seg-tipo-colaborador button").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+      renderGraficos();
+    });
+  });
 
   renderGraficos();
   window.addEventListener("resize", () => { clearTimeout(window.__mtResize); window.__mtResize = setTimeout(renderGraficos, 200); });
