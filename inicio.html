@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Gestão de Matriz de Treinamento</title>
+<title>Matriz de Treinamento</title>
 <link rel="stylesheet" href="css/styles.css" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#A23A3E" />
@@ -15,52 +15,40 @@
 <style>
   html, body { height: 100%; }
   .hero {
-    position: relative; min-height: 100vh; overflow: hidden;
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 28px; padding: 48px 24px;
+    /* Fundo claro pontilhado — leve, sem foto, deixa logo e título
+       carregarem sozinhos o peso visual da tela. */
+    background-color: var(--page);
+    background-image: radial-gradient(rgba(162, 58, 62, 0.16) 1px, transparent 1px);
+    background-size: 15px 15px;
   }
-  .hero-bg {
-    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center;
-  }
-  .hero-overlay {
-    /* Fundo claro (branco + dourado) — só uma lavagem branca bem leve pra
-       garantir contraste do título por cima, nada do escurecimento pesado
-       que a versão anterior (fundo vinho escuro) precisava. */
-    position: absolute; inset: 0;
-    background: linear-gradient(180deg, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0.5) 55%, rgba(255,255,255,0.7) 100%);
-  }
-  .hero-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; max-width: 720px; }
-  .hero-title-card {
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    background: var(--surface-raised); border-radius: 16px; padding: 20px 30px;
-    box-shadow: 0 16px 40px rgba(30, 14, 12, 0.22);
-  }
+  .hero-logo { width: clamp(120px, 16vw, 180px); height: auto; }
   .hero-title {
-    font-family: var(--font-display); font-weight: 600; color: var(--accent-strong);
-    font-size: clamp(24px, 4vw, 36px); text-align: center; text-wrap: balance;
+    font-family: var(--font-display); font-weight: 800; color: var(--accent);
+    font-size: clamp(28px, 5vw, 52px); letter-spacing: 0.01em; text-transform: uppercase;
+    text-align: center; text-wrap: balance; margin-top: -8px;
   }
-  .hero-subtitle { color: var(--ink-secondary); font-size: 14px; text-align: center; }
-  .hero-card {
-    width: 100%; background: var(--surface-raised); border-radius: 18px;
-    box-shadow: 0 24px 60px rgba(30, 14, 12, 0.35); padding: 30px 28px;
+  .hero-subtitle { color: var(--ink-secondary); font-size: 14px; text-align: center; margin-top: -16px; }
+
+  .ugb-grid {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 14px;
+    max-width: 1240px; width: 100%;
   }
-  .hero-card-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); text-align: center; margin-bottom: 16px; }
-  .ugb-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-  @media (max-width: 560px) { .ugb-grid { grid-template-columns: repeat(2, 1fr); } }
 
   @keyframes ugbIn { from { opacity: 0; transform: translateY(14px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
   .ugb-btn {
     position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-    padding: 18px 10px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-strong);
-    background: var(--surface); color: var(--ink); cursor: pointer;
+    width: 140px; padding: 18px 10px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-strong);
+    background: var(--surface-raised); color: var(--ink); cursor: pointer;
     font-family: var(--font-body); overflow: hidden;
     animation: ugbIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
   }
   .ugb-btn::before {
-    /* Brilho diagonal que varre o card no hover — puramente decorativo, dá o
-       toque "vivo" que faltava nos botões estáticos originais. */
+    /* Brilho diagonal que varre o card no hover — puramente decorativo. */
     content: ""; position: absolute; inset: 0; pointer-events: none;
     background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
     transform: translateX(-120%); transition: transform 0.55s ease;
@@ -68,7 +56,7 @@
   .ugb-btn:hover {
     transform: translateY(-5px) scale(1.03);
     border-color: var(--accent);
-    box-shadow: 0 16px 32px -12px rgba(30, 14, 12, 0.4);
+    box-shadow: 0 16px 32px -12px rgba(30, 14, 12, 0.32);
   }
   .ugb-btn:hover::before { transform: translateX(120%); }
   .ugb-btn:active { transform: translateY(-2px) scale(0.99); }
@@ -84,13 +72,12 @@
     width: 48px; height: 48px; border-radius: 50%; background: var(--surface-raised);
     display: flex; align-items: center; justify-content: center;
     font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--ink);
-    transition: background 0.22s ease;
   }
   .ugb-btn-count { font-weight: 500; font-size: 10.5px; color: var(--ink-muted); }
   .ugb-btn-pct { font-size: 10px; font-weight: 600; color: var(--ink-secondary); }
 
   .hero-todas {
-    width: 100%; margin-top: 6px; padding: 12px; border-radius: var(--radius-md);
+    padding: 10px 22px; border-radius: var(--radius-md);
     border: 1px dashed var(--border-strong); background: transparent; color: var(--ink-secondary);
     font-size: 13px; font-weight: 600; cursor: pointer; text-align: center;
     transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
@@ -101,19 +88,11 @@
 </head>
 <body>
   <div class="hero">
-    <img class="hero-bg" src="assets/images/capa-viana-moura-clara.png" alt="" aria-hidden="true" />
-    <div class="hero-overlay" aria-hidden="true"></div>
-    <div class="hero-wrap">
-      <div class="hero-title-card">
-        <h1 class="hero-title">Gestão de Matriz de Treinamento</h1>
-        <p class="hero-subtitle" id="hero-subtitle">Carregando unidades…</p>
-      </div>
-      <div class="hero-card">
-        <div class="hero-card-label">Selecione a UGB</div>
-        <div class="ugb-grid" id="ugb-grid"></div>
-        <button class="hero-todas" id="btn-todas" type="button">Ver todas as UGBs juntas</button>
-      </div>
-    </div>
+    <img class="hero-logo" src="assets/images/logo-viana-moura.png" alt="Viana &amp; Moura Construções" />
+    <h1 class="hero-title">Matriz de Treinamento</h1>
+    <p class="hero-subtitle" id="hero-subtitle">Carregando unidades…</p>
+    <div class="ugb-grid" id="ugb-grid"></div>
+    <button class="hero-todas" id="btn-todas" type="button">Ver todas as UGBs juntas</button>
   </div>
 
   <script src="js/app.js"></script>
