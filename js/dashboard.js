@@ -150,19 +150,26 @@
       const porGrupo = {};
       for (const r of fonte) {
         const chave = obterChave(r) || rotuloVazio;
-        porGrupo[chave] ??= { total: 0, realizado: 0 };
+        porGrupo[chave] ??= { total: 0, realizado: 0, pessoas: new Set() };
         porGrupo[chave].total++;
         if (r.Status === "Realizado") porGrupo[chave].realizado++;
+        if (r.NomeColaborador) porGrupo[chave].pessoas.add(r.NomeColaborador);
       }
       return Object.entries(porGrupo)
         .filter(([, v]) => v.total >= minRegistros)
-        .map(([label, v]) => ({ label, value: Math.round((v.realizado / v.total) * 1000) / 10, total: v.total }))
+        .map(([label, v]) => ({ label, value: Math.round((v.realizado / v.total) * 1000) / 10, total: v.total, pessoas: v.pessoas.size }))
         .sort((a, b) => b.value - a.value);
     }
 
-    function itensDoRanking(ranking) {
+    // O número entre parênteses mostra QUEM está no grupo (colaboradores
+    // distintos), não quantos registros de treinamento existem — uma pessoa
+    // com 6 treinamentos não deve "pesar 6" na contagem que aparece do lado
+    // do nome do grupo. Exceção: no ranking de Colaboradores (agrupado por
+    // pessoa), `pessoas` sempre daria 1 — ali o parêntese é mesmo a
+    // quantidade de treinamentos daquela pessoa, por isso usarPessoas=false.
+    function itensDoRanking(ranking, usarPessoas = true) {
       return ranking.map((r) => ({
-        label: `${r.label} (${MT.fmtInt(r.total)})`, value: r.value, _nome: r.label,
+        label: `${r.label} (${MT.fmtInt(usarPessoas ? r.pessoas : r.total)})`, value: r.value, _nome: r.label,
         color: r.value >= 70 ? "var(--status-good)" : r.value >= 40 ? "var(--status-warning)" : "var(--status-critical)",
       }));
     }
@@ -191,7 +198,7 @@
           : registros;
       const ranking = rankingPorConclusao("NomeColaborador", "Sem nome", 1, fonte);
       MTCharts.hbars(document.getElementById("chart-ranking-colaborador"), {
-        items: itensDoRanking(ranking),
+        items: itensDoRanking(ranking, false),
         valueFormat: (v) => MT.fmtPct(v, 0),
         showTarget: false,
         onClick: (item) => { window.location.href = `colaboradores.html?colaborador=${encodeURIComponent(item._nome)}`; },
