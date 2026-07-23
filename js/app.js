@@ -226,6 +226,36 @@ const MT = (() => {
     return "Administrativo";
   }
 
+  // Normaliza nome pra cruzar pessoas entre bases diferentes (matriz de
+  // treinamentos usa "Fulano da Silva", o quadro de RH usa "FULANO DA
+  // SILVA") — maiúsculas, sem acento, sem espaço duplicado.
+  function normalizarNome(nome) {
+    // Remove marcas diacríticas (acentos) decompondo em NFD e descartando os
+    // combining marks (faixa Unicode 0x0300–0x036F) um a um — evita escrever
+    // esse intervalo dentro de uma regex, onde editores/pipelines de texto
+    // volta e meia recompõem o range de volta no caractere acentuado.
+    const semAcento = (nome || "")
+      .normalize("NFD")
+      .split("")
+      .filter((ch) => { const c = ch.charCodeAt(0); return c < 0x0300 || c > 0x036f; })
+      .join("");
+    return semAcento.trim().toUpperCase().replace(/\s+/g, " ");
+  }
+
+  // UGB "oficial" a partir do SETOR do quadro de RH — só usado pra quem não
+  // tem nenhum registro na matriz de treinamentos (onde teríamos a UGB
+  // exata via cruzamento por nome). O SETOR do quadro só distingue essas 4
+  // UGBs explicitamente; o resto (VT/JG/SL/ITA e áreas corporativas) vem
+  // como "UGB Outros" ou nome de departamento, sem dar pra separar.
+  function ugbPorSetorQuadro(setor) {
+    const s = (setor || "").toUpperCase();
+    if (s === "UGB CA") return "CA";
+    if (s === "UGB GA") return "GA";
+    if (s === "UGB SC") return "SC";
+    if (s === "UGB IG") return "IG";
+    return null;
+  }
+
   // Se todos os registros compartilham o mesmo valor em `campo`, devolve
   // esse valor; senão devolve "" (fica em branco no formulário pra
   // preencher à mão — ex.: lista com colaboradores de treinamentos
@@ -314,7 +344,7 @@ const MT = (() => {
     applyStoredTheme, wireThemeToggle, renderShell, initials,
     loadTreinamentos, loadTreinamentosFiltrados, getUgbAtiva, setUgbAtiva, limparUgbAtiva,
     fmtInt, fmtPct, fmtDate, statusChip, diasAte, popularFiltro, exportarLPT,
-    CATEGORIAS_CARGO, categoriaCargo,
+    CATEGORIAS_CARGO, categoriaCargo, normalizarNome, ugbPorSetorQuadro,
   };
 })();
 

@@ -5,9 +5,22 @@
   const content = document.getElementById("mt-content");
   content.innerHTML = `<div class="empty-state">Carregando matriz de treinamentos…</div>`;
 
-  let registros;
+  // Base da lista: o QUADRO de RH (ativos), não a matriz de treinamentos —
+  // assim aparece todo mundo que trabalha aqui hoje, mesmo quem ainda não
+  // tem nenhum treinamento atribuído (antes, quem não tinha registro na
+  // matriz simplesmente não existia nessa tela). A matriz de treinamentos é
+  // usada pra: (1) cruzar por nome e achar a UGB exata de cada pessoa
+  // (CA/JG/VT/GA/SC/SL/ITA/IG — o quadro só distingue CA/GA/SC/IG), e (2)
+  // trazer os treinamentos de quem já tem.
+  let todosRegistros, quadro;
   try {
-    registros = await MT.loadTreinamentosFiltrados();
+    const [dadosTreino, respQuadro] = await Promise.all([
+      MT.loadTreinamentos(),
+      fetch("/api/quadro").then((r) => r.json()),
+    ]);
+    todosRegistros = dadosTreino;
+    if (respQuadro.erro) throw new Error(respQuadro.erro);
+    quadro = respQuadro.registros;
   } catch (e) {
     content.innerHTML = `<div class="card empty-state">${e.message}</div>`;
     return;
@@ -15,41 +28,77 @@
 
   const PRIORIDADE = MT.STATUS_PRIORIDADE;
 
-  const colaboradores = (() => {
-    const map = new Map();
-    for (const r of registros) {
-      const key = r.NomeColaborador || "—";
-      if (!map.has(key)) {
-        map.set(key, {
-          nome: key, cargo: r.Cargo_Colaborador, ugb: r.UGB_Colaborador,
-          ga: r.GA_Colaborador, setor: r.Setor_Colaborador, lider: r.NomeLider,
-          categoria: MT.categoriaCargo(r.Cargo_Colaborador),
-          registros: [],
-        });
-      }
-      map.get(key).registros.push(r);
+  function tituloCase(s) {
+    return (s || "").toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase());
+  }
+
+  // Um treinamento (da matriz, sem filtro de UGB) por nome normalizado —
+  // dá a UGB/GA/Setor/Líder exatos e a lista de registros de quem já tem
+  // pelo menos um treinamento atribuído.
+  const porNomeTreino = new Map();
+  for (const r of todosRegistros) {
+    const chave = MT.normalizarNome(r.NomeColaborador);
+    if (!chave) continue;
+    if (!porNomeTreino.has(chave)) {
+      porNomeTreino.set(chave, {
+        nome: r.NomeColaborador, cargo: r.Cargo_Colaborador, ugb: r.UGB_Colaborador,
+        ga: r.GA_Colaborador, setor: r.Setor_Colaborador, lider: r.NomeLider, registros: [],
+      });
     }
-    return [...map.values()].map((c) => {
-      const total = c.registros.length;
-      const realizado = c.registros.filter((r) => r.Status === "Realizado").length;
-      const piorStatus = c.registros.reduce((pior, r) => {
-        const p = PRIORIDADE[r.Status] ?? 3;
-        return p < (PRIORIDADE[pior] ?? 3) ? r.Status : pior;
-      }, "Realizado");
-      return { ...c, total, realizado, pctRealizado: total ? (realizado / total) * 100 : 0, piorStatus };
-    }).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-  })();
+    porNomeTreino.get(chave).registros.push(r);
+  }
+
+  const ugbAtiva = MT.getUgbAtiva();
+
+  const colaboradoresTodos = quadro.map((q) => {
+    const chave = MT.normalizarNome(q.NOME);
+    const treino = porNomeTreino.get(chave);
+    const registros = treino?.registros || [];
+    const total = registros.length;
+    const realizado = registros.filter((r) => r.Status === "Realizado").length;
+    const piorStatus = total
+      ? registros.reduce((pior, r) => (PRIORIDADE[r.Status] ?? 3) < (PRIORIDADE[pior] ?? 3) ? r.Status : pior, "Realizado")
+      : null; // sem nenhum treinamento atribuído na matriz
+
+    return {
+      nome: treino?.nome || tituloCase(q.NOME),
+      cargo: treino?.cargo || tituloCase(q["FUNÇÃO"]),
+      ugb: treino?.ugb || MT.ugbPorSetorQuadro(q.SETOR),
+      ga: treino?.ga || null,
+      setor: treino?.setor || q.SETOR,
+      lider: treino?.lider || null,
+      categoria: MT.categoriaCargo(treino?.cargo || q["FUNÇÃO"]),
+      tipoColaborador: q.DIRETO_INDIRETO === "DIRETO" ? "Direto" : q.DIRETO_INDIRETO === "INDIRETO" ? "Indireto" : "Outros",
+      total, realizado, pctRealizado: total ? (realizado / total) * 100 : 0,
+      piorStatus, semTreinamento: total === 0,
+      registros,
+    };
+  });
+
+  const colaboradores = (ugbAtiva ? colaboradoresTodos.filter((c) => c.ugb === ugbAtiva) : colaboradoresTodos)
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+  const semTreinamentoTotal = colaboradores.filter((c) => c.semTreinamento).length;
 
   // Vindo do ranking da Visão Geral: ?setor=X ou ?categoria=X abrem já
-  // filtrados; ?colaborador=X busca e abre o detalhe direto dessa pessoa.
+  // filtrados; ?colaborador=X busca e abre o detalhe direto dessa pessoa
+  // (comparação por nome normalizado, já que a matriz usa Título Case e o
+  // quadro de RH usa MAIÚSCULAS).
   const params = new URLSearchParams(location.search);
   const setorUrl = params.get("setor") || "";
   const categoriaUrl = params.get("categoria") || "";
   const colaboradorUrl = params.get("colaborador") || "";
+  const colaboradorUrlNorm = MT.normalizarNome(colaboradorUrl);
 
   const state = { busca: colaboradorUrl, ugb: "", ga: "", setor: setorUrl, categoria: categoriaUrl, status: "", selecionado: null };
 
   content.innerHTML = `
+    <p class="footnote" style="margin-top:-6px;">
+      Lista a partir do quadro de RH (colaboradores ativos hoje) — ${MT.fmtInt(colaboradores.length)} pessoas
+      ${ugbAtiva ? `na UGB ${ugbAtiva}` : "em todas as UGBs"}, ${MT.fmtInt(semTreinamentoTotal)} ainda sem nenhum
+      treinamento atribuído na matriz.
+    </p>
+
     <div class="filter-bar">
       <div class="field">
         <label for="f-busca">Buscar colaborador</label>
@@ -81,6 +130,7 @@
           <option value="Atrasado">Tem atraso</option>
           <option value="Pendente">Tem pendência</option>
           <option value="Realizado">100% realizado</option>
+          <option value="SemTreinamento">Sem treinamentos atribuídos</option>
         </select>
       </div>
       <button class="btn btn-ghost" id="f-limpar" type="button" style="margin-top:16px;">Limpar filtros</button>
@@ -115,9 +165,9 @@
     </div>
   `;
 
-  MT.popularFiltro(document.getElementById("f-ugb"), registros, "UGB_Colaborador");
-  MT.popularFiltro(document.getElementById("f-ga"), registros, "GA_Colaborador");
-  MT.popularFiltro(document.getElementById("f-setor"), registros, "Setor_Colaborador");
+  MT.popularFiltro(document.getElementById("f-ugb"), colaboradores, "ugb");
+  MT.popularFiltro(document.getElementById("f-ga"), colaboradores, "ga");
+  MT.popularFiltro(document.getElementById("f-setor"), colaboradores, "setor");
   document.getElementById("f-busca").value = state.busca;
   document.getElementById("f-setor").value = state.setor;
   document.getElementById("f-categoria").value = state.categoria;
@@ -133,6 +183,7 @@
       if (state.status === "Realizado" && c.piorStatus !== "Realizado") return false;
       if (state.status === "Atrasado" && c.piorStatus !== "Atrasado") return false;
       if (state.status === "Pendente" && !(c.piorStatus === "Pendente" || c.piorStatus === "Atrasado")) return false;
+      if (state.status === "SemTreinamento" && !c.semTreinamento) return false;
       return true;
     });
   }
@@ -153,7 +204,7 @@
           <div class="bar-track"><div class="bar-fill" style="width:${c.pctRealizado}%;"></div></div>
           <span class="footnote mono">${MT.fmtPct(c.pctRealizado, 0)}</span>
         </td>
-        <td>${MT.statusChip(c.piorStatus)}</td>
+        <td>${c.piorStatus ? MT.statusChip(c.piorStatus) : '<span class="chip chip-neutral">Sem treinamentos</span>'}</td>
       </tr>
     `).join("") || `<tr><td colspan="9" class="footnote" style="padding:18px;">Nenhum colaborador encontrado com os filtros atuais.</td></tr>`;
 
@@ -168,7 +219,7 @@
     state.selecionado = nome;
     document.getElementById("detalhe-card").style.display = "";
     document.getElementById("detalhe-titulo").textContent = c.nome;
-    document.getElementById("detalhe-sub").textContent = `${c.cargo || "—"} · ${c.ugb || "—"} · líder: ${c.lider || "—"} · ${MT.fmtInt(c.total)} treinamentos (${MT.fmtPct(c.pctRealizado, 0)} concluídos)`;
+    document.getElementById("detalhe-sub").textContent = `${c.cargo || "—"} · ${c.tipoColaborador} · ${c.ugb || "—"} · líder: ${c.lider || "—"} · ${MT.fmtInt(c.total)} treinamentos (${MT.fmtPct(c.pctRealizado, 0)} concluídos)`;
     const ordenados = [...c.registros].sort((a, b) => (PRIORIDADE[a.Status] ?? 3) - (PRIORIDADE[b.Status] ?? 3));
     document.getElementById("tbody-detalhe").innerHTML = ordenados.map((r) => `
       <tr>
@@ -179,7 +230,7 @@
         <td>${MT.fmtDate(r.Prazo)}</td>
         <td>${MT.fmtDate(r.DataTreinamento)}</td>
       </tr>
-    `).join("");
+    `).join("") || `<tr><td colspan="6" class="footnote" style="padding:14px;">Nenhum treinamento atribuído a este colaborador na matriz ainda.</td></tr>`;
     document.getElementById("detalhe-card").scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
@@ -210,5 +261,8 @@
   });
 
   renderTabela();
-  if (colaboradorUrl && colaboradores.some((c) => c.nome === colaboradorUrl)) abrirDetalhe(colaboradorUrl);
+  if (colaboradorUrlNorm) {
+    const achado = colaboradores.find((c) => MT.normalizarNome(c.nome) === colaboradorUrlNorm);
+    if (achado) abrirDetalhe(achado.nome);
+  }
 })();

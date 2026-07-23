@@ -97,6 +97,36 @@ reprocessar o CSV de 8MB a cada request. Ambas as funções (`progresso-univm` e
 CSV de origem sozinho já leva uns 7-8s nesse volume de dados, perto do limite
 padrão de 10s da Vercel.
 
+## Quadro de colaboradores ativos (`api/quadro.js` → `colaboradores.html`)
+
+CSV: `.../Gente e Gestao/quadro/quadro.csv` — quadro de RH completo (6.914
+linhas, ativos e desligados desde sempre); a API filtra e devolve só quem
+está `CODSITUACAO = "A"` (Ativo hoje — 1.779 pessoas). Colunas relevantes:
+`NOME`, `FUNÇÃO`, `FUNÇÃO_AGRUPADA`, `DIRETO_INDIRETO`, `SETOR`, `CIDADE`,
+`DATAADMISSAO`.
+
+É a base real da tela **Colaboradores** desde que essa integração entrou —
+antes a tela só listava quem já tinha pelo menos um registro na matriz de
+treinamentos, escondendo quem ainda não tinha nada atribuído. Agora:
+
+- `colaboradores.js` carrega `api/quadro` (ativos) **e** `api/treinamentos`
+  sem filtro de UGB, e cruza os dois **por nome normalizado**
+  (`MT.normalizarNome` — maiúsculas, sem acento) pra achar, pra quem já tem
+  treinamento, a UGB exata (CA/JG/VT/GA/SC/SL/ITA/IG) e a lista de
+  treinamentos dessa pessoa.
+- Quem não aparece na matriz de treinamentos entra do mesmo jeito (com "Sem
+  treinamentos atribuídos" na coluna Situação) — a UGB nesse caso vem de
+  `MT.ugbPorSetorQuadro(SETOR)`, que só reconhece `"UGB CA"`, `"UGB GA"`,
+  `"UGB SC"` e `"UGB IG"` explicitamente; o campo `SETOR` do quadro não
+  distingue VT/JG/SL/ITA nem as áreas corporativas (tudo cai em `"UGB
+  Outros"` ou no nome do departamento), então essas pessoas só aparecem
+  quando "Todas as UGBs" está selecionado.
+- **Limitação conhecida:** o cruzamento é só por nome — 12 dos 1.779 ativos
+  (~0,7%) têm homônimos (duas pessoas reais com o mesmo nome completo, ex.:
+  "Adriano Manoel da Silva", chapas diferentes). Sem um ID em comum entre as
+  duas bases, essas duplicatas herdam os mesmos dados de treinamento; não dá
+  pra distinguir automaticamente.
+
 ## Próximos passos sugeridos
 
 - Tela de login (autenticação por usuário/senha ou SSO da Viana & Moura) — deixada de fora da primeira versão de propósito.
