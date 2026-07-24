@@ -204,7 +204,7 @@ const MT = (() => {
       const treino = porNomeTreino.get(chave);
       const registros = treino?.registros || [];
       const total = registros.length;
-      const realizado = registros.filter((r) => r.Status === "Realizado").length;
+      const { realizado, pctRealizado } = calcularPercentuais(registros);
       const piorStatus = total
         ? registros.reduce((pior, r) => (STATUS_PRIORIDADE[r.Status] ?? 3) < (STATUS_PRIORIDADE[pior] ?? 3) ? r.Status : pior, "Realizado")
         : null;
@@ -218,7 +218,7 @@ const MT = (() => {
         lider: treino?.lider || null,
         categoria: categoriaCargo(treino?.cargo || q["FUNÇÃO"]),
         tipoColaborador: q.DIRETO_INDIRETO === "DIRETO" ? "Direto" : q.DIRETO_INDIRETO === "INDIRETO" ? "Indireto" : "Outros",
-        total, realizado, pctRealizado: total ? (realizado / total) * 100 : 0,
+        total, realizado, pctRealizado,
         piorStatus, semTreinamento: total === 0,
         registros,
       };
@@ -271,6 +271,29 @@ const MT = (() => {
   function statusChip(status) {
     const cls = STATUS_CHIP[status] || "chip-neutral";
     return `<span class="chip ${cls}">${status || "—"}</span>`;
+  }
+
+  // Fórmulas oficiais do dashboard corporativo (Power BI) — % Realizado tira
+  // "Aguarda Validação" do denominador (treinamento já foi feito, só falta
+  // aprovação, não deveria contar como pendência em aberto); % Pendente e %
+  // Atrasado usam o total cheio, sem excluir nada. Usada em toda tela que
+  // mostra % de conclusão pra bater com o relatório oficial.
+  function calcularPercentuais(registros) {
+    const total = registros.length;
+    let realizado = 0, pendente = 0, atrasado = 0, aguardaValidacao = 0;
+    for (const r of registros) {
+      if (r.Status === "Realizado") realizado++;
+      else if (r.Status === "Pendente") pendente++;
+      else if (r.Status === "Atrasado") atrasado++;
+      else if (r.Status === "Aguarda Validação") aguardaValidacao++;
+    }
+    const baseRealizado = total - aguardaValidacao;
+    return {
+      total, realizado, pendente, atrasado, aguardaValidacao,
+      pctRealizado: baseRealizado ? (realizado / baseRealizado) * 100 : 0,
+      pctPendente: total ? (pendente / total) * 100 : 0,
+      pctAtrasado: total ? (atrasado / total) * 100 : 0,
+    };
   }
 
   function diasAte(iso, base = new Date()) {
@@ -474,7 +497,7 @@ const MT = (() => {
     NAV_ITEMS, STATUS_ORDER, STATUS_CHIP, STATUS_COLOR_VAR, STATUS_PRIORIDADE,
     applyStoredTheme, wireThemeToggle, renderShell, initials,
     loadTreinamentos, loadTreinamentosFiltrados, getUgbAtiva, setUgbAtiva, limparUgbAtiva,
-    fmtInt, fmtPct, fmtDate, statusChip, diasAte, popularFiltro, exportarLPT,
+    fmtInt, fmtPct, fmtDate, statusChip, diasAte, popularFiltro, exportarLPT, calcularPercentuais,
     CATEGORIAS_CARGO, categoriaCargo, normalizarNome, ugbPorSetorQuadro, carregarNomesAtivos,
     carregarColaboradoresAtivos,
   };

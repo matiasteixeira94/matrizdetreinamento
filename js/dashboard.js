@@ -5,35 +5,29 @@
   const content = document.getElementById("mt-content");
   content.innerHTML = `<div class="empty-state">Carregando matriz de treinamentos…</div>`;
 
-  let registros, nomesAtivos, colaboradoresAtivos;
+  let registros, nomesAtivos;
   try {
-    [registros, nomesAtivos, colaboradoresAtivos] = await Promise.all([
+    [registros, nomesAtivos] = await Promise.all([
       MT.loadTreinamentosFiltrados(),
       MT.carregarNomesAtivos(),
-      MT.carregarColaboradoresAtivos(),
     ]);
     // A matriz de treinamentos não tem conceito de "ativo" — é histórico de
     // quem já teve algum treinamento atribuído, incluindo gente desligada.
     // Filtra pelo quadro de RH pra Visão Geral (stats, gráficos e rankings)
     // refletir só quem trabalha aqui hoje.
     registros = registros.filter((r) => nomesAtivos.has(MT.normalizarNome(r.NomeColaborador)));
-    // Idem pro headcount do cartão Setores, e já recortado pela UGB ativa
-    // (carregarColaboradoresAtivos devolve todas as UGBs juntas).
-    const ugbAtiva = MT.getUgbAtiva();
-    if (ugbAtiva) colaboradoresAtivos = colaboradoresAtivos.filter((c) => c.ugb === ugbAtiva);
   } catch (e) {
     content.innerHTML = `<div class="card empty-state">${e.message}</div>`;
     return;
   }
 
-  const total = registros.length;
+  // % Realizado/Pendente/Atrasado seguem exatamente as fórmulas do dashboard
+  // corporativo (Power BI): Realizado tira "Aguarda Validação" do
+  // denominador, Pendente/Atrasado usam o total cheio.
+  const { total, realizado, pendente, atrasado, pctRealizado, pctPendente, pctAtrasado } = MT.calcularPercentuais(registros);
+  const outros = total - realizado - pendente - atrasado;
   const porStatus = {};
   for (const r of registros) porStatus[r.Status || "—"] = (porStatus[r.Status || "—"] || 0) + 1;
-  const realizado = porStatus["Realizado"] || 0;
-  const pendente = porStatus["Pendente"] || 0;
-  const atrasado = porStatus["Atrasado"] || 0;
-  const outros = total - realizado - pendente - atrasado;
-  const pct = (n) => (total ? (n / total) * 100 : 0);
   const stateRankingColab = { tipo: "" }; // "" | "direto" | "indireto"
 
   content.innerHTML = `
@@ -51,24 +45,24 @@
       </a>
       <a class="card stat-tile stat-tile-link" href="pendencias.html?status=Realizado" title="Ver os treinamentos realizados">
         <div class="stat-label">Realizados</div>
-        <div class="stat-value">${MT.fmtPct(pct(realizado), 0)}</div>
+        <div class="stat-value">${MT.fmtPct(pctRealizado, 0)}</div>
         <span class="chip chip-good">${MT.fmtInt(realizado)} registros</span>
       </a>
       <a class="card stat-tile stat-tile-link" href="pendencias.html?status=Pendente" title="Ver os treinamentos pendentes">
         <div class="stat-label">Pendentes</div>
-        <div class="stat-value">${MT.fmtPct(pct(pendente), 0)}</div>
+        <div class="stat-value">${MT.fmtPct(pctPendente, 0)}</div>
         <span class="chip chip-warning">${MT.fmtInt(pendente)} registros</span>
       </a>
       <a class="card stat-tile stat-tile-link" href="pendencias.html?status=Atrasado" title="Ver os treinamentos atrasados">
         <div class="stat-label">Atrasados</div>
-        <div class="stat-value">${MT.fmtPct(pct(atrasado), 0)}</div>
+        <div class="stat-value">${MT.fmtPct(pctAtrasado, 0)}</div>
         <span class="chip chip-critical">${MT.fmtInt(atrasado)} registros</span>
       </a>
     </div>
 
     <div class="section-head">
       <h2>Rankings — maior % concluído primeiro</h2>
-      <span class="footnote">Lista completa, role pra ver todo mundo · clique num nome, líder ou setor pra ver o detalhe · líder/áreas exigem mínimo 5 registros · setor mostra o headcount real do quadro de RH</span>
+      <span class="footnote">Lista completa, role pra ver todo mundo · clique num nome, líder ou setor pra ver o detalhe · líder/setor/áreas exigem mínimo 5 registros</span>
     </div>
     <div class="grid grid-3">
       <div class="card">
@@ -87,7 +81,7 @@
         <div class="chart-host chart-host-scroll" id="chart-ranking-lider"></div>
       </div>
       <div class="card">
-        <div class="card-head"><div><div class="card-title">Setores</div><div class="card-sub">Produção, Infraestrutura, Suprimentos, Vendas, Administrativo — pelo cargo</div></div></div>
+        <div class="card-head"><div><div class="card-title">Setores</div><div class="card-sub">Setor do colaborador (UGB/Vendas/Infra)</div></div></div>
         <div class="chart-host chart-host-scroll" id="chart-ranking-setor"></div>
       </div>
     </div>
@@ -105,7 +99,7 @@
 
     <div class="grid grid-2">
       <div class="card">
-        <div class="card-head"><div><div class="card-title">Áreas com maior % concluído</div><div class="card-sub">Agrupamento por GA do colaborador · mínimo 5 registros</div></div></div>
+        <div class="card-head"><div><div class="card-title">Áreas com maior % concluído</div><div class="card-sub">GA do colaborador; sem GA, usa o Setor · mínimo 5 registros</div></div></div>
         <div class="chart-host chart-host-scroll" id="chart-areas-atraso"></div>
       </div>
       <div class="card">
@@ -142,29 +136,33 @@
       legendLabel: "Treinamentos realizados por mês",
     });
 
-    // Ranking genérico por % concluído (Realizado / total) — usado pra
-    // Líder e GA (Setor tem sua própria função, renderRankingSetor, porque
-    // precisa do headcount do quadro de RH em vez de só contar registros da
-    // matriz). Mínimo de 5 registros evita destacar grupos
-    // minúsculos onde 1 registro já vira 0% ou 100% e distorce o ranking.
-    // Ordena do menor % concluído pro maior — quem mais precisa de atenção
-    // primeiro. Mostra a lista inteira (sem top N) — o card tem rolagem
-    // própria (.chart-host-scroll) pra caber. `campoOuFn` aceita tanto o
-    // nome de um campo do registro quanto uma função (registro) => chave,
-    // pra grupos derivados como a categoria por cargo.
+    // Ranking genérico por % concluído — usado pra Colaboradores, Líder,
+    // Setor e GA. % segue a fórmula do dashboard corporativo (Power BI):
+    // Realizado / (Total - Aguarda Validação), não Realizado / Total puro.
+    // Mínimo de 5 registros evita destacar grupos minúsculos onde 1 registro
+    // já vira 0% ou 100% e distorce o ranking. Ordena do menor % concluído
+    // pro maior — quem mais precisa de atenção primeiro. Mostra a lista
+    // inteira (sem top N) — o card tem rolagem própria (.chart-host-scroll)
+    // pra caber. `campoOuFn` aceita tanto o nome de um campo do registro
+    // quanto uma função (registro) => chave, pra grupos derivados como o
+    // setor (GA, com Setor_Colaborador como reserva).
     function rankingPorConclusao(campoOuFn, rotuloVazio, minRegistros = 5, fonte = registros) {
       const obterChave = typeof campoOuFn === "function" ? campoOuFn : (r) => r[campoOuFn];
       const porGrupo = {};
       for (const r of fonte) {
         const chave = obterChave(r) || rotuloVazio;
-        porGrupo[chave] ??= { total: 0, realizado: 0, pessoas: new Set() };
+        porGrupo[chave] ??= { total: 0, realizado: 0, aguardaValidacao: 0, pessoas: new Set() };
         porGrupo[chave].total++;
         if (r.Status === "Realizado") porGrupo[chave].realizado++;
+        else if (r.Status === "Aguarda Validação") porGrupo[chave].aguardaValidacao++;
         if (r.NomeColaborador) porGrupo[chave].pessoas.add(r.NomeColaborador);
       }
       return Object.entries(porGrupo)
         .filter(([, v]) => v.total >= minRegistros)
-        .map(([label, v]) => ({ label, value: Math.round((v.realizado / v.total) * 1000) / 10, total: v.total, pessoas: v.pessoas.size }))
+        .map(([label, v]) => {
+          const base = v.total - v.aguardaValidacao;
+          return { label, value: base ? Math.round((v.realizado / base) * 1000) / 10 : 0, total: v.total, pessoas: v.pessoas.size };
+        })
         .sort((a, b) => b.value - a.value);
     }
 
@@ -220,38 +218,23 @@
     renderRankingConclusao("chart-ranking-lider", "NomeLider", "Sem líder", (nome) => {
       window.location.href = `equipes.html?lider=${encodeURIComponent(nome)}`;
     }, registrosLiderAtivo);
-    // Setor usa o headcount do quadro de RH (colaboradoresAtivos) pro número
-    // entre parênteses, não a contagem de quem tem registro na matriz — do
-    // contrário quem ainda não tem nenhum treinamento atribuído (comum pra
-    // Administrativo em UGBs menores) some da soma e o cartão não bate com
-    // o total real de colaboradores do setor. O % concluído continua vindo
-    // só dos registros de treinamento; setor sem nenhum registro ainda
-    // aparece com 0% (ninguém foi treinado, mas as pessoas existem).
-    function renderRankingSetor() {
-      const porCategoria = {};
-      for (const c of colaboradoresAtivos) {
-        const cat = c.categoria || "Sem categoria";
-        porCategoria[cat] ??= { total: 0, realizado: 0, pessoas: new Set() };
-        porCategoria[cat].pessoas.add(c.nome);
-      }
-      for (const r of registros) {
-        const cat = MT.categoriaCargo(r.Cargo_Colaborador) || "Sem categoria";
-        porCategoria[cat] ??= { total: 0, realizado: 0, pessoas: new Set() };
-        porCategoria[cat].total++;
-        if (r.Status === "Realizado") porCategoria[cat].realizado++;
-      }
-      const ranking = Object.entries(porCategoria)
-        .map(([label, v]) => ({ label, value: v.total ? Math.round((v.realizado / v.total) * 1000) / 10 : 0, total: v.total, pessoas: v.pessoas.size }))
-        .sort((a, b) => b.value - a.value);
-      MTCharts.hbars(document.getElementById("chart-ranking-setor"), {
-        items: itensDoRanking(ranking),
-        valueFormat: (v) => MT.fmtPct(v, 0),
-        showTarget: false,
-        onClick: (item) => { window.location.href = `colaboradores.html?categoria=${encodeURIComponent(item._nome)}`; },
-      });
-    }
-    renderRankingSetor();
-    renderRankingConclusao("chart-areas-atraso", "GA_Colaborador", "Sem GA");
+    // Setor = Setor_Colaborador puro (código de UGB, com prefixo Vendas/Infra
+    // quando aplicável) — mesmo campo usado pela coluna "Setor" do dashboard
+    // corporativo (Power BI).
+    renderRankingConclusao("chart-ranking-setor", "Setor_Colaborador", "Sem setor", (nome) => {
+      window.location.href = `colaboradores.html?setor=${encodeURIComponent(nome)}`;
+    });
+    // Áreas = GA_Colaborador; a maioria dos registros vem como "Não tem GA"
+    // (só quem está numa turma/grupo específico de treinamento tem GA), então
+    // cai pro Setor_Colaborador nesses casos — sem isso "Não tem GA" vira um
+    // bloco único gigante (quase 2/3 dos registros) sem informação nenhuma.
+    // Mesmo critério da coluna "GA" do dashboard corporativo.
+    const chaveGA = (r) => (r.GA_Colaborador && r.GA_Colaborador !== "Não tem GA") ? r.GA_Colaborador : r.Setor_Colaborador;
+    const valoresGA = new Set(registros.map((r) => r.GA_Colaborador).filter((g) => g && g !== "Não tem GA"));
+    renderRankingConclusao("chart-areas-atraso", chaveGA, "Sem área", (nome) => {
+      const param = valoresGA.has(nome) ? "ga" : "setor";
+      window.location.href = `colaboradores.html?${param}=${encodeURIComponent(nome)}`;
+    });
 
     const porInstrutor = {};
     for (const r of registros) {

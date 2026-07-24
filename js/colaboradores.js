@@ -25,17 +25,18 @@
 
   const semTreinamentoTotal = colaboradores.filter((c) => c.semTreinamento).length;
 
-  // Vindo do ranking da Visão Geral: ?setor=X ou ?categoria=X abrem já
+  // Vindo do ranking da Visão Geral: ?setor=X, ?ga=X ou ?categoria=X abrem já
   // filtrados; ?colaborador=X busca e abre o detalhe direto dessa pessoa
   // (comparação por nome normalizado, já que a matriz usa Título Case e o
   // quadro de RH usa MAIÚSCULAS).
   const params = new URLSearchParams(location.search);
   const setorUrl = params.get("setor") || "";
+  const gaUrl = params.get("ga") || "";
   const categoriaUrl = params.get("categoria") || "";
   const colaboradorUrl = params.get("colaborador") || "";
   const colaboradorUrlNorm = MT.normalizarNome(colaboradorUrl);
 
-  const state = { busca: colaboradorUrl, ugb: "", ga: "", setor: setorUrl, categoria: categoriaUrl, status: "", selecionado: null };
+  const state = { busca: colaboradorUrl, ugb: "", ga: gaUrl, setor: setorUrl, categoria: categoriaUrl, status: "", selecionado: null };
 
   content.innerHTML = `
     <p class="footnote" style="margin-top:-6px;">
@@ -114,6 +115,7 @@
   MT.popularFiltro(document.getElementById("f-ga"), colaboradores, "ga");
   MT.popularFiltro(document.getElementById("f-setor"), colaboradores, "setor");
   document.getElementById("f-busca").value = state.busca;
+  document.getElementById("f-ga").value = state.ga;
   document.getElementById("f-setor").value = state.setor;
   document.getElementById("f-categoria").value = state.categoria;
 

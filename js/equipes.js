@@ -36,12 +36,10 @@
     return [...map.values()]
       .filter((eq) => nomesAtivos.has(MT.normalizarNome(eq.nome))) // líder também precisa estar ativo
       .map((eq) => {
-        const total = eq.registros.length;
-        const realizado = eq.registros.filter((r) => r.Status === "Realizado").length;
-        const atrasado = eq.registros.filter((r) => r.Status === "Atrasado").length;
+        const { total, realizado, atrasado, pctRealizado } = MT.calcularPercentuais(eq.registros);
         return {
           ...eq, total, realizado, atrasado, tamanhoEquipe: eq.colaboradores.size,
-          pctConclusao: total ? (realizado / total) * 100 : 0,
+          pctConclusao: pctRealizado,
         };
       }).sort((a, b) => b.tamanhoEquipe - a.tamanhoEquipe);
   })();
@@ -148,10 +146,9 @@
       porColaborador.get(key).registros.push(r);
     }
     const membros = [...porColaborador.values()].map((m) => {
-      const total = m.registros.length;
-      const realizado = m.registros.filter((r) => r.Status === "Realizado").length;
+      const { total, pctRealizado } = MT.calcularPercentuais(m.registros);
       const piorStatus = m.registros.reduce((pior, r) => (PRIORIDADE[r.Status] ?? 3) < (PRIORIDADE[pior] ?? 3) ? r.Status : pior, "Realizado");
-      return { ...m, total, pctConclusao: total ? (realizado / total) * 100 : 0, piorStatus };
+      return { ...m, total, pctConclusao: pctRealizado, piorStatus };
     }).sort((a, b) => (PRIORIDADE[a.piorStatus] ?? 3) - (PRIORIDADE[b.piorStatus] ?? 3) || a.nome.localeCompare(b.nome, "pt-BR"));
 
     document.getElementById("tbody-detalhe").innerHTML = membros.map((m) => `

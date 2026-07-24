@@ -18,15 +18,21 @@
     for (const r of registros) {
       const key = r.NomeTreinamento || "—";
       if (!map.has(key)) {
-        map.set(key, { nome: key, tipo: r.TipoTreinamento, unidade: r.UnidadeResponsavel, total: 0, realizado: 0, pendente: 0, atrasado: 0 });
+        map.set(key, { nome: key, tipo: r.TipoTreinamento, unidade: r.UnidadeResponsavel, total: 0, realizado: 0, pendente: 0, atrasado: 0, aguardaValidacao: 0 });
       }
       const it = map.get(key);
       it.total++;
       if (r.Status === "Realizado") it.realizado++;
       else if (r.Status === "Pendente") it.pendente++;
       else if (r.Status === "Atrasado") it.atrasado++;
+      else if (r.Status === "Aguarda Validação") it.aguardaValidacao++;
     }
-    return [...map.values()].map((it) => ({ ...it, pctConclusao: it.total ? (it.realizado / it.total) * 100 : 0 }));
+    // % Realizado tira "Aguarda Validação" do denominador — mesma fórmula do
+    // dashboard corporativo (Power BI).
+    return [...map.values()].map((it) => {
+      const base = it.total - it.aguardaValidacao;
+      return { ...it, pctConclusao: base ? (it.realizado / base) * 100 : 0 };
+    });
   })();
 
   const state = { busca: "", tipo: "", unidade: "", sortKey: "pctConclusao", sortDir: "asc" };
