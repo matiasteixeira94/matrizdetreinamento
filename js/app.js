@@ -142,6 +142,19 @@ const MT = (() => {
     return _cache;
   }
 
+  // Registros crus do quadro de RH (só ativos, já filtrado pela API) —
+  // cacheado à parte da matriz de treinamentos porque nem toda tela precisa
+  // das duas coisas.
+  let _cacheQuadro = null;
+  async function carregarQuadro({ force = false } = {}) {
+    if (_cacheQuadro && !force) return _cacheQuadro;
+    const res = await fetch("/api/quadro");
+    if (!res.ok) throw new Error("Falha ao carregar o quadro de colaboradores ativos");
+    const dados = await res.json();
+    _cacheQuadro = dados.registros;
+    return _cacheQuadro;
+  }
+
   // Nomes (normalizados) de quem está ativo hoje no quadro de RH — usado
   // pra tirar gente desligada de rankings/listas que vêm da matriz de
   // treinamentos (que não tem conceito de "ativo", só o histórico de quem
@@ -149,11 +162,68 @@ const MT = (() => {
   let _cacheAtivos = null;
   async function carregarNomesAtivos({ force = false } = {}) {
     if (_cacheAtivos && !force) return _cacheAtivos;
-    const res = await fetch("/api/quadro");
-    if (!res.ok) throw new Error("Falha ao carregar o quadro de colaboradores ativos");
-    const dados = await res.json();
-    _cacheAtivos = new Set(dados.registros.map((r) => normalizarNome(r.NOME)));
+    const quadro = await carregarQuadro({ force });
+    _cacheAtivos = new Set(quadro.map((r) => normalizarNome(r.NOME)));
     return _cacheAtivos;
+  }
+
+  function tituloCase(s) {
+    return (s || "").toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase());
+  }
+
+  // Todo mundo ativo hoje no quadro de RH, cruzado com a matriz de
+  // treinamentos por nome — ao contrário de `loadTreinamentos` (que só
+  // enxerga quem já tem algum treinamento atribuído), essa lista inclui
+  // quem ainda não tem nenhum. É a base "oficial" de headcount: telas que
+  // mostram quantidade de colaboradores (por setor, categoria, UGB) devem
+  // usar essa função, não contar registros da matriz, senão quem ainda não
+  // tem treinamento atribuído some da contagem.
+  let _cacheColaboradores = null;
+  async function carregarColaboradoresAtivos({ force = false } = {}) {
+    if (_cacheColaboradores && !force) return _cacheColaboradores;
+    const [todosRegistros, quadro] = await Promise.all([
+      loadTreinamentos({ force }),
+      carregarQuadro({ force }),
+    ]);
+
+    const porNomeTreino = new Map();
+    for (const r of todosRegistros) {
+      const chave = normalizarNome(r.NomeColaborador);
+      if (!chave) continue;
+      if (!porNomeTreino.has(chave)) {
+        porNomeTreino.set(chave, {
+          nome: r.NomeColaborador, cargo: r.Cargo_Colaborador, ugb: r.UGB_Colaborador,
+          ga: r.GA_Colaborador, setor: r.Setor_Colaborador, lider: r.NomeLider, registros: [],
+        });
+      }
+      porNomeTreino.get(chave).registros.push(r);
+    }
+
+    _cacheColaboradores = quadro.map((q) => {
+      const chave = normalizarNome(q.NOME);
+      const treino = porNomeTreino.get(chave);
+      const registros = treino?.registros || [];
+      const total = registros.length;
+      const realizado = registros.filter((r) => r.Status === "Realizado").length;
+      const piorStatus = total
+        ? registros.reduce((pior, r) => (STATUS_PRIORIDADE[r.Status] ?? 3) < (STATUS_PRIORIDADE[pior] ?? 3) ? r.Status : pior, "Realizado")
+        : null;
+
+      return {
+        nome: treino?.nome || tituloCase(q.NOME),
+        cargo: treino?.cargo || tituloCase(q["FUNÇÃO"]),
+        ugb: treino?.ugb || ugbPorSetorQuadro(q.SETOR),
+        ga: treino?.ga || null,
+        setor: treino?.setor || q.SETOR,
+        lider: treino?.lider || null,
+        categoria: categoriaCargo(treino?.cargo || q["FUNÇÃO"]),
+        tipoColaborador: q.DIRETO_INDIRETO === "DIRETO" ? "Direto" : q.DIRETO_INDIRETO === "INDIRETO" ? "Indireto" : "Outros",
+        total, realizado, pctRealizado: total ? (realizado / total) * 100 : 0,
+        piorStatus, semTreinamento: total === 0,
+        registros,
+      };
+    });
+    return _cacheColaboradores;
   }
 
   // UGB escolhida na tela inicial (inicio.html) — persiste entre páginas via
@@ -406,6 +476,7 @@ const MT = (() => {
     loadTreinamentos, loadTreinamentosFiltrados, getUgbAtiva, setUgbAtiva, limparUgbAtiva,
     fmtInt, fmtPct, fmtDate, statusChip, diasAte, popularFiltro, exportarLPT,
     CATEGORIAS_CARGO, categoriaCargo, normalizarNome, ugbPorSetorQuadro, carregarNomesAtivos,
+    carregarColaboradoresAtivos,
   };
 })();
 

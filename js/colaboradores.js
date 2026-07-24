@@ -8,72 +8,17 @@
   // Base da lista: o QUADRO de RH (ativos), não a matriz de treinamentos —
   // assim aparece todo mundo que trabalha aqui hoje, mesmo quem ainda não
   // tem nenhum treinamento atribuído (antes, quem não tinha registro na
-  // matriz simplesmente não existia nessa tela). A matriz de treinamentos é
-  // usada pra: (1) cruzar por nome e achar a UGB exata de cada pessoa
-  // (CA/JG/VT/GA/SC/SL/ITA/IG — o quadro só distingue CA/GA/SC/IG), e (2)
-  // trazer os treinamentos de quem já tem.
-  let todosRegistros, quadro;
+  // matriz simplesmente não existia nessa tela).
+  let colaboradoresTodos;
   try {
-    const [dadosTreino, respQuadro] = await Promise.all([
-      MT.loadTreinamentos(),
-      fetch("/api/quadro").then((r) => r.json()),
-    ]);
-    todosRegistros = dadosTreino;
-    if (respQuadro.erro) throw new Error(respQuadro.erro);
-    quadro = respQuadro.registros;
+    colaboradoresTodos = await MT.carregarColaboradoresAtivos();
   } catch (e) {
     content.innerHTML = `<div class="card empty-state">${e.message}</div>`;
     return;
   }
 
   const PRIORIDADE = MT.STATUS_PRIORIDADE;
-
-  function tituloCase(s) {
-    return (s || "").toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase());
-  }
-
-  // Um treinamento (da matriz, sem filtro de UGB) por nome normalizado —
-  // dá a UGB/GA/Setor/Líder exatos e a lista de registros de quem já tem
-  // pelo menos um treinamento atribuído.
-  const porNomeTreino = new Map();
-  for (const r of todosRegistros) {
-    const chave = MT.normalizarNome(r.NomeColaborador);
-    if (!chave) continue;
-    if (!porNomeTreino.has(chave)) {
-      porNomeTreino.set(chave, {
-        nome: r.NomeColaborador, cargo: r.Cargo_Colaborador, ugb: r.UGB_Colaborador,
-        ga: r.GA_Colaborador, setor: r.Setor_Colaborador, lider: r.NomeLider, registros: [],
-      });
-    }
-    porNomeTreino.get(chave).registros.push(r);
-  }
-
   const ugbAtiva = MT.getUgbAtiva();
-
-  const colaboradoresTodos = quadro.map((q) => {
-    const chave = MT.normalizarNome(q.NOME);
-    const treino = porNomeTreino.get(chave);
-    const registros = treino?.registros || [];
-    const total = registros.length;
-    const realizado = registros.filter((r) => r.Status === "Realizado").length;
-    const piorStatus = total
-      ? registros.reduce((pior, r) => (PRIORIDADE[r.Status] ?? 3) < (PRIORIDADE[pior] ?? 3) ? r.Status : pior, "Realizado")
-      : null; // sem nenhum treinamento atribuído na matriz
-
-    return {
-      nome: treino?.nome || tituloCase(q.NOME),
-      cargo: treino?.cargo || tituloCase(q["FUNÇÃO"]),
-      ugb: treino?.ugb || MT.ugbPorSetorQuadro(q.SETOR),
-      ga: treino?.ga || null,
-      setor: treino?.setor || q.SETOR,
-      lider: treino?.lider || null,
-      categoria: MT.categoriaCargo(treino?.cargo || q["FUNÇÃO"]),
-      tipoColaborador: q.DIRETO_INDIRETO === "DIRETO" ? "Direto" : q.DIRETO_INDIRETO === "INDIRETO" ? "Indireto" : "Outros",
-      total, realizado, pctRealizado: total ? (realizado / total) * 100 : 0,
-      piorStatus, semTreinamento: total === 0,
-      registros,
-    };
-  });
 
   const colaboradores = (ugbAtiva ? colaboradoresTodos.filter((c) => c.ugb === ugbAtiva) : colaboradoresTodos)
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
