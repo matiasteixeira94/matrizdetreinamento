@@ -5,22 +5,17 @@
   const content = document.getElementById("mt-content");
   content.innerHTML = `<div class="empty-state">Carregando matriz de treinamentos…</div>`;
 
-  let registros, nomesAtivos, colaboradoresAtivos;
+  let registros, nomesAtivos;
   try {
-    [registros, nomesAtivos, colaboradoresAtivos] = await Promise.all([
+    [registros, nomesAtivos] = await Promise.all([
       MT.loadTreinamentosFiltrados(),
       MT.carregarNomesAtivos(),
-      MT.carregarColaboradoresAtivos(),
     ]);
     // A matriz de treinamentos não tem conceito de "ativo" — é histórico de
     // quem já teve algum treinamento atribuído, incluindo gente desligada.
     // Filtra pelo quadro de RH pra Visão Geral (stats, gráficos e rankings)
     // refletir só quem trabalha aqui hoje.
     registros = registros.filter((r) => nomesAtivos.has(MT.normalizarNome(r.NomeColaborador)));
-    // Idem pro headcount do cartão Setores, e já recortado pela UGB ativa
-    // (carregarColaboradoresAtivos devolve todas as UGBs juntas).
-    const ugbAtiva = MT.getUgbAtiva();
-    if (ugbAtiva) colaboradoresAtivos = colaboradoresAtivos.filter((c) => c.ugb === ugbAtiva);
   } catch (e) {
     content.innerHTML = `<div class="card empty-state">${e.message}</div>`;
     return;
@@ -67,7 +62,7 @@
 
     <div class="section-head">
       <h2>Rankings — maior % concluído primeiro</h2>
-      <span class="footnote">Lista completa, role pra ver todo mundo · clique num nome, líder ou setor pra ver o detalhe · líder/áreas exigem mínimo 5 registros; setor mostra todo mundo, inclusive quem ainda não tem treinamento (0%)</span>
+      <span class="footnote">Lista completa, role pra ver todo mundo · clique num nome, líder ou GA pra ver o detalhe · líder/GA exigem mínimo 5 registros</span>
     </div>
     <div class="grid grid-3">
       <div class="card">
@@ -86,8 +81,8 @@
         <div class="chart-host chart-host-scroll" id="chart-ranking-lider"></div>
       </div>
       <div class="card">
-        <div class="card-head"><div><div class="card-title">Setores</div><div class="card-sub">Todo o headcount ativo, mesmo sem treinamento</div></div></div>
-        <div class="chart-host chart-host-scroll" id="chart-ranking-setor"></div>
+        <div class="card-head"><div><div class="card-title">GA</div><div class="card-sub">GA do colaborador; sem GA, usa o Setor</div></div></div>
+        <div class="chart-host chart-host-scroll" id="chart-ranking-ga"></div>
       </div>
     </div>
 
@@ -102,18 +97,12 @@
       </div>
     </div>
 
-    <div class="grid grid-2">
-      <div class="card">
-        <div class="card-head"><div><div class="card-title">Áreas com maior % concluído</div><div class="card-sub">GA do colaborador; sem GA, usa o Setor · mínimo 5 registros</div></div></div>
-        <div class="chart-host chart-host-scroll" id="chart-areas-atraso"></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div><div class="card-title">Instrutores com mais treinamentos realizados</div><div class="card-sub">Top 10</div></div></div>
-        <div class="table-wrap"><table class="data">
-          <thead><tr><th>Instrutor</th><th class="num">Realizados</th></tr></thead>
-          <tbody id="tbody-instrutores"></tbody>
-        </table></div>
-      </div>
+    <div class="card">
+      <div class="card-head"><div><div class="card-title">Instrutores com mais treinamentos realizados</div><div class="card-sub">Top 10</div></div></div>
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>Instrutor</th><th class="num">Realizados</th></tr></thead>
+        <tbody id="tbody-instrutores"></tbody>
+      </table></div>
     </div>
   `;
 
@@ -141,17 +130,15 @@
       legendLabel: "Treinamentos realizados por mês",
     });
 
-    // Ranking genérico por % concluído — usado pra Colaboradores, Líder e
-    // Áreas (Setor tem sua própria função, renderRankingSetor, porque parte
-    // do headcount do quadro de RH em vez de só registros da matriz). %
-    // segue a fórmula do dashboard corporativo (Power BI): Realizado /
+    // Ranking genérico por % concluído — usado pra Colaboradores, Líder e GA.
+    // % segue a fórmula do dashboard corporativo (Power BI): Realizado /
     // (Total - Aguarda Validação), não Realizado / Total puro. Mínimo de 5
     // registros evita destacar grupos minúsculos onde 1 registro já vira 0%
     // ou 100% e distorce o ranking. Ordena do menor % concluído pro maior —
     // quem mais precisa de atenção primeiro. Mostra a lista inteira (sem top
     // N) — o card tem rolagem própria (.chart-host-scroll) pra caber.
     // `campoOuFn` aceita tanto o nome de um campo do registro quanto uma
-    // função (registro) => chave, pra grupos derivados como a área (GA, com
+    // função (registro) => chave, pra grupos derivados como o GA (com
     // Setor_Colaborador como reserva).
     function rankingPorConclusao(campoOuFn, rotuloVazio, minRegistros = 5, fonte = registros) {
       const obterChave = typeof campoOuFn === "function" ? campoOuFn : (r) => r[campoOuFn];
@@ -225,39 +212,14 @@
     renderRankingConclusao("chart-ranking-lider", "NomeLider", "Sem líder", (nome) => {
       window.location.href = `equipes.html?lider=${encodeURIComponent(nome)}`;
     }, registrosLiderAtivo);
-    // Setor parte do headcount completo do quadro de RH (colaboradoresAtivos),
-    // não só de quem tem registro na matriz — assim ninguém some do cartão.
-    // Chave é o Setor_Colaborador (código de UGB, com prefixo Vendas/Infra
-    // quando aplicável) de quem já tem treinamento; quem ainda não tem nada
-    // atribuído entra pelo SETOR bruto do RH e aparece com 0% (não 100%
-    // nem escondido — só ainda não foi treinado).
-    function renderRankingSetor() {
-      const porSetor = {};
-      for (const c of colaboradoresAtivos) {
-        const chave = c.setor || "Sem setor";
-        porSetor[chave] ??= { pessoas: new Set(), registros: [] };
-        porSetor[chave].pessoas.add(c.nome);
-        for (const r of c.registros) porSetor[chave].registros.push(r);
-      }
-      const ranking = Object.entries(porSetor)
-        .map(([label, v]) => ({ label, pessoas: v.pessoas.size, total: v.registros.length, value: Math.round(MT.calcularPercentuais(v.registros).pctRealizado * 10) / 10 }))
-        .sort((a, b) => b.value - a.value);
-      MTCharts.hbars(document.getElementById("chart-ranking-setor"), {
-        items: itensDoRanking(ranking),
-        valueFormat: (v) => MT.fmtPct(v, 0),
-        showTarget: false,
-        onClick: (item) => { window.location.href = `colaboradores.html?setor=${encodeURIComponent(item._nome)}`; },
-      });
-    }
-    renderRankingSetor();
-    // Áreas = GA_Colaborador; a maioria dos registros vem como "Não tem GA"
-    // (só quem está numa turma/grupo específico de treinamento tem GA), então
-    // cai pro Setor_Colaborador nesses casos — sem isso "Não tem GA" vira um
+    // GA = GA_Colaborador; a maioria dos registros vem como "Não tem GA" (só
+    // quem está numa turma/grupo específico de treinamento tem GA), então cai
+    // pro Setor_Colaborador nesses casos — sem isso "Não tem GA" vira um
     // bloco único gigante (quase 2/3 dos registros) sem informação nenhuma.
     // Mesmo critério da coluna "GA" do dashboard corporativo.
     const chaveGA = (r) => (r.GA_Colaborador && r.GA_Colaborador !== "Não tem GA") ? r.GA_Colaborador : r.Setor_Colaborador;
     const valoresGA = new Set(registros.map((r) => r.GA_Colaborador).filter((g) => g && g !== "Não tem GA"));
-    renderRankingConclusao("chart-areas-atraso", chaveGA, "Sem área", (nome) => {
+    renderRankingConclusao("chart-ranking-ga", chaveGA, "Sem área", (nome) => {
       const param = valoresGA.has(nome) ? "ga" : "setor";
       window.location.href = `colaboradores.html?${param}=${encodeURIComponent(nome)}`;
     });
